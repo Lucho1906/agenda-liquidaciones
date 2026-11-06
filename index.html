@@ -1645,7 +1645,14 @@ window.startApp = () => {
     if (e && (e.code === "42501" || /row-level security|permission denied/i.test(m))) return { code: "invalid_argument", message: m };
     return { code: "unavailable", message: m || "Error de conexión" };
   };
-  const ok = (r) => { if (r.error) throw err(r.error); return r.data; };
+  const ok = (r) => { if (r.error) { aviso(r.error); throw err(r.error); } return r.data; };
+  // Aviso visible de errores de lectura/escritura (diagnóstico)
+  function aviso(e, donde) {
+    console.error("Supabase", donde || "", e);
+    let b = document.getElementById("diag"); if (!b) { b = document.createElement("div"); b.id = "diag"; b.style.cssText = "position:fixed;left:12px;bottom:12px;z-index:99;max-width:min(560px,90vw);background:#3d1f1c;color:#ffd7d3;border:1px solid #ff7b72;border-radius:10px;padding:10px 12px;font:12px/1.4 system-ui;white-space:pre-wrap"; document.body.append(b); }
+    b.textContent = (b.textContent ? b.textContent + "\n" : "No se pudieron leer algunos datos:\n") + (donde ? donde + ": " : "") + [e && e.code, e && e.message, e && e.details, e && e.hint].filter(Boolean).join(" · ");
+  }
+  window.__diag = {};
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 
   // ---------- cambios en vivo: un canal por tabla ----------
@@ -1689,7 +1696,7 @@ window.startApp = () => {
       async get() { return snapDocs(ok(await sb.from(tabla).select("id,data").limit(5000))); },
       onSnapshot(next, onErr) {
         let vivo = true;
-        const cargar = async () => { const r = await sb.from(tabla).select("id,data").limit(5000); if (!vivo) return; if (r.error) { if (onErr) onErr(err(r.error)); return; } next(snapDocs(r.data)); };
+        const cargar = async () => { const r = await sb.from(tabla).select("id,data").limit(5000); if (!vivo) return; if (r.error) { aviso(r.error, tabla); if (onErr) onErr(err(r.error)); return; } window.__diag[tabla] = r.data.length; console.info("Supabase", tabla, r.data.length, "filas"); next(snapDocs(r.data)); };
         cargar(); const off = escuchar(tabla, demorar(cargar, 250));
         return () => { vivo = false; off(); };
       },
@@ -1701,7 +1708,7 @@ window.startApp = () => {
   function documento(ruta) {
     const [tabla, id] = ruta.split("/");
     if (tabla === "historial") return { async set() {}, async update() {}, async delete() {}, async get() { return { exists: false, data: () => undefined }; }, onSnapshot(n) { n({ exists: false, data: () => undefined }); return () => {}; } };
-    const leer = async () => { const r = ok(await sb.from(tabla).select("id,data").eq("id", id).maybeSingle()); return { id, exists: !!r, data: () => (r ? r.data : undefined) }; };
+    const leer = async () => { const q = await sb.from(tabla).select("id,data").eq("id", id).maybeSingle(); if (q.error) { aviso(q.error, ruta); throw err(q.error); } const r = q.data; window.__diag[ruta] = !!r; return { id, exists: !!r, data: () => (r ? r.data : undefined) }; };
     return {
       id, path: ruta, get: leer,
       async set(data) { ok(await sb.from(tabla).upsert({ id, data, actualizado: new Date().toISOString() })); },
@@ -1773,6 +1780,7 @@ window.startApp = () => {
     arrancado = true;
     const email = (session.user.email || "").toLowerCase();
     const r = await sb.from("miembros").select("email,rol,nombre");
+    if (r.error) aviso(r.error, "miembros");
     miembros = r.data || [];
     yo = miembros.find((m) => m.email === email) || null;
     if (!yo) { paso(3); $("login").hidden = false; $("lg-who").textContent = email; arrancado = false; return; }
