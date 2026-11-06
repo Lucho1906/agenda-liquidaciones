@@ -1825,18 +1825,21 @@ window.startApp = () => {
       await S.db.doc("liqmod/" + key).set(data);
       if (parts.length > 1) log("liq", { tipo: "liq", titulo: x.q, id: key }, parts.join(" · "));
       // Si avanza un requisito principal, sus entregables que estén más atrás avanzan al mismo estado.
-      const n = (x.n === "p" && patch.s && patch.s !== x.s) ? await arrastrarEntregables(c, x, patch.s) : 0;
+      const n = (x.n === "p" && patch.s && patch.s !== x.s) ? await arrastrarEntregables(c, x, patch.s, x.s) : 0;
       if (!silencioso) toast(n ? "Guardado · también " + (n === 1 ? "1 entregable pasó" : n + " entregables pasaron") + " a «" + (EST_L[patch.s] || patch.s) + "»" : "Guardado");
     }
     catch (e) { toast(writeErr(e)); render(); }
   }
-  async function arrastrarEntregables(c, p, nuevo) {
-    const rank = (s) => EST.indexOf(s), rN = rank(nuevo); if (rN <= 0) return 0;
-    const hijos = annotate(liqItems(c.id)).filter((y) => y.n === "e" && y.p === p.r && !y.oculto && rank(y.s) < rN && !(S.liqmod[c.id + "__" + y.r] || {}).excepcion);
+  // Avance: los entregables atrasados suben al estado del principal (salvo excepciones).
+  // Retroceso: los que van por delante vuelven con él, salvo los ya aprobados (IDU o ESP).
+  async function arrastrarEntregables(c, p, nuevo, antes) {
+    const rank = (s) => EST.indexOf(s), rN = rank(nuevo); if (rN < 0) return 0;
+    const baja = rank(antes) > rN, exc = (y) => !!(S.liqmod[c.id + "__" + y.r] || {}).excepcion;
+    const hijos = annotate(liqItems(c.id)).filter((y) => y.n === "e" && y.p === p.r && !y.oculto && (baja ? !cerrado(y.s) && (rank(y.s) > rN || (rank(y.s) === rN && exc(y))) : rank(y.s) < rN && !exc(y)));
     for (const y of hijos) {
       const k = c.id + "__" + y.r, pv = S.liqmod[k] || {};
       const d = Object.assign({ cid: c.id, row: y.r, s: nuevo, pl: y.pl || "", rp: y.rp || "", ri: y.ri || "", o: y.o || "", oculto: !!y.oculto },
-        y.nuevo ? { nuevo: true, despues: pv.despues || "", n: "e", et: y.et || "", a: y.a || "", q: y.q, creada: pv.creada || pv.t || "" } : {}, { t: new Date().toISOString(), uid: S.uid || "", arrastre: p.r });
+        y.nuevo ? { nuevo: true, despues: pv.despues || "", n: "e", et: y.et || "", a: y.a || "", q: y.q, creada: pv.creada || pv.t || "" } : {}, { t: new Date().toISOString(), uid: S.uid || "", arrastre: p.r, excepcion: false });
       await S.db.doc("liqmod/" + k).set(d);
     }
     if (hijos.length) log("liq", { tipo: "liq", titulo: p.q, id: c.id + "__" + p.r }, c.codigo + " · " + hijos.length + (hijos.length === 1 ? " entregable pasó" : " entregables pasaron") + " automáticamente a " + (EST_L[nuevo] || nuevo) + ": " + hijos.map((y) => y.q).join(", ").slice(0, 300));
