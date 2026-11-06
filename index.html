@@ -1770,12 +1770,12 @@ window.startApp = () => {
   let arrancado = false;
   async function arrancar(session) {
     if (arrancado || !session) return;
+    arrancado = true;
     const email = (session.user.email || "").toLowerCase();
     const r = await sb.from("miembros").select("email,rol,nombre");
     miembros = r.data || [];
     yo = miembros.find((m) => m.email === email) || null;
-    if (!yo) { paso(3); $("lg-who").textContent = email; return; }
-    arrancado = true;
+    if (!yo) { paso(3); $("login").hidden = false; $("lg-who").textContent = email; arrancado = false; return; }
     $("login").hidden = true; $("app-root").hidden = false;
     window.startApp();
     extras();
