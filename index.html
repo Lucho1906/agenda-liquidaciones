@@ -1370,6 +1370,8 @@ window.startApp = () => {
   const FASES = { liquidacion: "En liquidación", ejecucion: "En ejecución", garantias: "En garantías", definir: "Por definir" };
   const TIPOS = { construccion: "Construcción", conservacion: "Conservación", otro: "Otro" };
   const DONE_EST = "APROBADO POR IDU";
+  // Un requisito queda cerrado cuando lo aprueba el IDU o la ESP.
+  const cerrado = (s) => s === "APROBADO POR IDU" || s === "APROBADO POR LA ESP";
   const L = { sel: null, area: "", est: "", q: "", vista: "", expandAll: false, plazo: "", open: {}, edit: null, add: null, showHidden: false };
   S.liq = {}; S.liqmod = {};
   const fmtDY = (s) => { const d = parse(s); return d.getDate() + " " + MESES[d.getMonth()].slice(0, 3) + " " + d.getFullYear(); };
@@ -1414,18 +1416,18 @@ window.startApp = () => {
     const its = liqItems(cid).filter((x) => !x.oculto), t0 = todayISO();
     const ps = its.filter((x) => x.n === "p"), cnt = {}; EST.forEach((e) => (cnt[e] = 0));
     ps.forEach((x) => { if (cnt[x.s] != null) cnt[x.s]++; else cnt["EN PROCESO"]++; });
-    const pend = its.filter((x) => (x.n === "p" || x.n === "e") && x.s !== DONE_EST && x.pl);
-    return { total: ps.length, cnt, done: cnt[DONE_EST], late: pend.filter((x) => x.pl < t0).length, lateP: pend.filter((x) => x.pl < t0 && x.n === "p").length, lateE: pend.filter((x) => x.pl < t0 && x.n === "e").length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
+    const pend = its.filter((x) => (x.n === "p" || x.n === "e") && !cerrado(x.s) && x.pl);
+    return { total: ps.length, cnt, done: cnt["APROBADO POR IDU"] + cnt["APROBADO POR LA ESP"], late: pend.filter((x) => x.pl < t0).length, lateP: pend.filter((x) => x.pl < t0 && x.n === "p").length, lateE: pend.filter((x) => x.pl < t0 && x.n === "e").length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
   }
   const stackBar = (cnt) => el("div", { class: "sbar", title: EST.map((e) => EST_L[e] + ": " + cnt[e]).join("\n") }, EST.map((e) => cnt[e] ? el("span", { style: "flex:" + cnt[e] + ";background:" + EST_C[e] }) : null));
   function liqDue(from, to) {
     const out = [];
     S.contracts.forEach((c) => { if (S.hideC[c.id] || !S.liq[c.id]) return; const m = {};
-      liqItems(c.id).forEach((x) => { if (x.oculto || x.s === DONE_EST || !x.pl || (x.n !== "p" && x.n !== "e")) return; if (x.pl >= from && x.pl <= to) (m[x.pl] = m[x.pl] || []).push(x); });
+      liqItems(c.id).forEach((x) => { if (x.oculto || cerrado(x.s) || !x.pl || (x.n !== "p" && x.n !== "e")) return; if (x.pl >= from && x.pl <= to) (m[x.pl] = m[x.pl] || []).push(x); });
       Object.entries(m).forEach(([d, xs]) => out.push({ tipo: "liq", id: "liq-" + c.id + d, fecha: d, contrato: c.id, resp: "p1", titulo: c.nombre + ": " + xs.length + (xs.length === 1 ? " requisito de liquidación" : " requisitos de liquidación"), n: xs.length })); });
     return out;
   }
-  function liqLate() { const t0 = todayISO(); return S.contracts.filter((c) => !S.hideC[c.id] && S.liq[c.id]).map((c) => ({ c, n: liqItems(c.id).filter((x) => !x.oculto && x.s !== DONE_EST && x.pl && x.pl < t0 && (x.n === "p" || x.n === "e")).length })).filter((o) => o.n); }
+  function liqLate() { const t0 = todayISO(); return S.contracts.filter((c) => !S.hideC[c.id] && S.liq[c.id]).map((c) => ({ c, n: liqItems(c.id).filter((x) => !x.oculto && !cerrado(x.s) && x.pl && x.pl < t0 && (x.n === "p" || x.n === "e")).length })).filter((o) => o.n); }
   function openLiq(cid, plazo) { L.sel = cid; L.plazo = plazo || ""; L.area = ""; L.est = ""; L.q = ""; L.vista = plazo ? "pend" : ""; L.edit = null; L.open = {}; L.expandAll = !!plazo; setView("liq"); window.scrollTo(0, 0); }
   function liqChip(x) {
     return el("button", { type: "button", class: "chip" + (x.fecha < todayISO() ? " late" : ""), style: varsFor(x), title: "Plazos de liquidación\n" + x.titulo, onclick: (e) => { e.stopPropagation(); openLiq(x.contrato, x.fecha); } },
@@ -1491,7 +1493,7 @@ window.startApp = () => {
     const st = liqStats(c.id);
     return el("button", { type: "button", class: "lq-card", style: colorVars(c.color), onclick: () => openLiq(c.id) },
       el("div", { class: "lq-ch" }, el("span", { class: "dot" }), el("b", { text: c.nombre }), el("span", { class: "cd", text: c.codigo }), c.tipo ? el("span", { class: "tag", text: TIPOS[c.tipo] || c.tipo }) : null),
-      st.has ? [el("div", { class: "lq-pct" }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales aprobados por IDU" })), stackBar(st.cnt),
+      st.has ? [el("div", { class: "lq-pct" }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales cerrados (aprobados por IDU o por la ESP)" })), stackBar(st.cnt),
         el("div", { class: "lq-meta" }, st.late ? el("span", { class: "late", text: st.late + " con plazo vencido" }) : el("span", { text: "Sin plazos vencidos" }), st.next ? el("span", { text: "Próximo plazo: " + fmtD(st.next) }) : null)]
         : el("span", { class: "muted", text: "Aún no tiene lista de chequeo cargada." }),
       legalLine(c));
@@ -1510,9 +1512,9 @@ window.startApp = () => {
     if (!L.showHidden && x.oculto) return false;
     if (L.area && x.a !== L.area) return false;
     if (L.est && x.s !== L.est) return false;
-    if (L.vista === "pend" && x.s === DONE_EST) return false;
-    if (L.vista === "aprob" && x.s !== DONE_EST) return false;
-    if (L.vista === "venc" && !(x.s !== DONE_EST && x.pl && x.pl < todayISO())) return false;
+    if (L.vista === "pend" && cerrado(x.s)) return false;
+    if (L.vista === "aprob" && !cerrado(x.s)) return false;
+    if (L.vista === "venc" && !(!cerrado(x.s) && x.pl && x.pl < todayISO())) return false;
     if (L.plazo && x.pl !== L.plazo) return false;
     if (L.q && !fold([x.q, x.o, x.rp, x.ri].filter(Boolean).join(" ")).includes(fold(L.q))) return false;
     return true;
@@ -1541,7 +1543,7 @@ window.startApp = () => {
     }
     const items = annotate(liqItems(c.id)), st = liqStats(c.id);
     parts.push(el("div", { class: "lq-stats" },
-      el("div", { class: "lq-pct", style: colorVars(c.color) }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales aprobados por IDU" + (st.late ? " · " : "") }, st.late ? el("span", { class: "late", text: "plazo vencido: " + st.lateP + (st.lateP === 1 ? " principal" : " principales") + " y " + st.lateE + (st.lateE === 1 ? " entregable" : " entregables") }) : null)),
+      el("div", { class: "lq-pct", style: colorVars(c.color) }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales cerrados (aprobados por IDU o por la ESP)" + (st.late ? " · " : "") }, st.late ? el("span", { class: "late", text: "plazo vencido: " + st.lateP + (st.lateP === 1 ? " principal" : " principales") + " y " + st.lateE + (st.lateE === 1 ? " entregable" : " entregables") }) : null)),
       stackBar(st.cnt),
       el("div", { class: "est-legend" }, EST.map((e) => el("span", null, el("i", { style: "background:" + EST_C[e] }), EST_L[e] + " ", el("b", { text: String(st.cnt[e]) })))),
       el("span", { class: "muted", text: "Resumen del contrato: requisitos principales en cada estado." })));
@@ -1555,7 +1557,7 @@ window.startApp = () => {
     const cap = (a) => a[0] + a.slice(1).toLowerCase();
     const t0f = todayISO();
     const cuenta = (f) => items.filter((x) => x.n === "p" && !x.oculto && f(x)).length;
-    const VISTAS = [["", "Todos", cuenta(() => true)], ["pend", "Pendientes", cuenta((x) => x.s !== DONE_EST)], ["venc", "Vencidos", cuenta((x) => x.s !== DONE_EST && x.pl && x.pl < t0f)], ["aprob", "Aprobados por IDU", cuenta((x) => x.s === DONE_EST)]];
+    const VISTAS = [["", "Todos", cuenta(() => true)], ["pend", "Pendientes", cuenta((x) => !cerrado(x.s))], ["venc", "Vencidos", cuenta((x) => !cerrado(x.s) && x.pl && x.pl < t0f)], ["aprob", "Cerrados", cuenta((x) => cerrado(x.s))]];
     const search = el("input", { type: "search", placeholder: "Buscar requisito, responsable u observación", value: L.q, "aria-label": "Buscar en la lista de chequeo" });
     search.addEventListener("input", () => { L.q = search.value; clearTimeout(search._t); search._t = setTimeout(() => { renderLiq(); const s2 = $("v-liq").querySelector('input[type="search"]'); if (s2) { s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); } }, 250); });
     const hiddenN = items.filter((x) => x.oculto).length;
@@ -1601,14 +1603,14 @@ window.startApp = () => {
       known ? null : el("option", { value: x.s || "", text: x.s || "Sin estado", selected: true }), EST.map((e) => el("option", { value: e, text: EST_L[e], selected: x.s === e })));
   }
   function liqRow(c, x, kids, filtering) {
-    const t0 = todayISO(), late = x.pl && x.pl < t0 && x.s !== DONE_EST, open = isOpen(x.r);
+    const t0 = todayISO(), late = x.pl && x.pl < t0 && !cerrado(x.s), open = isOpen(x.r);
     const kd = kids ? kids.filter((k) => !k.oculto) : null;
     return el("div", { class: "lq-r " + x.n + (x.oculto ? " hid" : "") + (x.nuevo ? " nuevo" : "") },
       x.n === "p" && kids && kids.length ? el("button", { type: "button", class: "chev", "aria-expanded": String(!!open), "aria-label": (open ? "Ocultar" : "Ver") + " entregables", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, open ? "▾" : "▸") : el("span", { class: "chev" }),
       el("div", { style: "min-width:0" },
         el("button", { type: "button", class: "lq-q", text: x.q, title: "Editar estado, plazo, responsable y observaciones", onclick: () => { L.edit = L.edit === x.r ? null : x.r; renderLiq(); } }),
         el("div", { class: "lq-m" }, x.a ? el("span", { class: "tag", text: x.a }) : null,
-          kd && kd.length ? el("button", { type: "button", class: "lq-tog", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, (open ? "Ocultar entregables" : "Ver entregables") + " · " + kd.filter((k) => k.s === DONE_EST).length + "/" + kd.length + " aprobados" + (filtering && kids.filter((k) => liqFilterMatch(k)).length !== kd.length ? " · " + kids.filter((k) => liqFilterMatch(k)).length + " coinciden" : "")) : null,
+          kd && kd.length ? el("button", { type: "button", class: "lq-tog", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, (open ? "Ocultar entregables" : "Ver entregables") + " · " + kd.filter((k) => cerrado(k.s)).length + "/" + kd.length + " cerrados" + (filtering && kids.filter((k) => liqFilterMatch(k)).length !== kd.length ? " · " + kids.filter((k) => liqFilterMatch(k)).length + " coinciden" : "")) : null,
           x.rp ? el("span", { text: x.rp }) : null,
           x.pl ? el("span", { class: late ? "late" : "", text: (late ? "Venció " : "Plazo ") + fmtD(x.pl) }) : (x.plt ? el("span", { text: x.plt }) : null),
           x.oculto ? el("span", { text: "No aplica" }) : null,
