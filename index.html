@@ -353,15 +353,24 @@ dialog::backdrop { background: rgb(0 0 0 / .55); }
 .lq-step.past { opacity: .55; }
 .lq-note { background: var(--side); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--muted); }
 .lq-stats { display: flex; flex-direction: column; gap: 10px; background: var(--side); border-radius: 12px; padding: 12px; }
-.est-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.est-chips button { border: 1px solid transparent; border-radius: 999px; padding: 4px 10px; background: var(--card); color: var(--ink); font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
-.est-chips button[aria-pressed="true"] { border-color: var(--ink); }
-.est-chips i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .lq-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .lq-filters input[type="search"] { flex: 1 1 200px; min-width: 0; border: 1px solid var(--line); background: var(--side); border-radius: 9px; padding: 8px 10px; }
 .lq-filters label { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); cursor: pointer; }
-.lq-flt { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--muted); background: color-mix(in srgb, var(--accent) 8%, var(--side)); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 10px; padding: 8px 12px; }
-.lq-flt b { color: var(--ink); }
+.est-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); }
+.est-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.est-legend b { color: var(--ink); font-weight: 600; }
+.est-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.lq-fbox { display: flex; flex-direction: column; gap: 12px; background: var(--side); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.lq-views { display: flex; flex-wrap: wrap; gap: 4px; background: var(--bg); border-radius: 10px; padding: 4px; align-self: flex-start; max-width: 100%; }
+.lq-views button { border: 0; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 8px; font-size: 12.5px; }
+.lq-views button b { font-weight: 600; color: inherit; opacity: .8; }
+.lq-views button[aria-pressed="true"] { background: var(--card2); color: var(--ink); font-weight: 600; }
+.lq-frow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: 10px; }
+.lq-frow select, .lq-frow input { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 10px; width: 100%; }
+.lq-fsum { display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+.lq-fsum b { color: var(--ink); }
+.lq-fsum label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+@media (max-width: 700px) { .lq-frow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .lq-frow .lq-search { grid-column: 1 / -1; } .lq-views { align-self: stretch; } .lq-views button { flex: 1; padding: 7px 6px; } }
 .lq-imp { background: color-mix(in srgb, var(--warn) 9%, var(--side)); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
 .lq-imp b { color: var(--warn); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 details.lq-dt { background: var(--side); border-radius: 12px; padding: 10px 12px; }
@@ -1297,7 +1306,7 @@ window.startApp = () => {
   const FASES = { liquidacion: "En liquidación", ejecucion: "En ejecución", garantias: "En garantías", definir: "Por definir" };
   const TIPOS = { construccion: "Construcción", conservacion: "Conservación", otro: "Otro" };
   const DONE_EST = "APROBADO POR IDU";
-  const L = { sel: null, area: "", est: "", q: "", pend: false, plazo: "", open: {}, edit: null, add: null, showHidden: false };
+  const L = { sel: null, area: "", est: "", q: "", vista: "", plazo: "", open: {}, edit: null, add: null, showHidden: false };
   S.liq = {}; S.liqmod = {};
   const fmtDY = (s) => { const d = parse(s); return d.getDate() + " " + MESES[d.getMonth()].slice(0, 3) + " " + d.getFullYear(); };
   const money = (v) => typeof v === "number" ? (Math.abs(v) >= 1e6 ? new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(v) : new Intl.NumberFormat("es-CO").format(v)) : String(v ?? "");
@@ -1342,7 +1351,7 @@ window.startApp = () => {
     const ps = its.filter((x) => x.n === "p"), cnt = {}; EST.forEach((e) => (cnt[e] = 0));
     ps.forEach((x) => { if (cnt[x.s] != null) cnt[x.s]++; else cnt["EN PROCESO"]++; });
     const pend = its.filter((x) => (x.n === "p" || x.n === "e") && x.s !== DONE_EST && x.pl);
-    return { total: ps.length, cnt, done: cnt[DONE_EST], late: pend.filter((x) => x.pl < t0).length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
+    return { total: ps.length, cnt, done: cnt[DONE_EST], late: pend.filter((x) => x.pl < t0).length, lateP: pend.filter((x) => x.pl < t0 && x.n === "p").length, lateE: pend.filter((x) => x.pl < t0 && x.n === "e").length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
   }
   const stackBar = (cnt) => el("div", { class: "sbar", title: EST.map((e) => EST_L[e] + ": " + cnt[e]).join("\n") }, EST.map((e) => cnt[e] ? el("span", { style: "flex:" + cnt[e] + ";background:" + EST_C[e] }) : null));
   function liqDue(from, to) {
@@ -1353,7 +1362,7 @@ window.startApp = () => {
     return out;
   }
   function liqLate() { const t0 = todayISO(); return S.contracts.filter((c) => !S.hideC[c.id] && S.liq[c.id]).map((c) => ({ c, n: liqItems(c.id).filter((x) => !x.oculto && x.s !== DONE_EST && x.pl && x.pl < t0 && (x.n === "p" || x.n === "e")).length })).filter((o) => o.n); }
-  function openLiq(cid, plazo) { L.sel = cid; L.plazo = plazo || ""; L.area = ""; L.est = ""; L.q = ""; L.pend = !!plazo; L.edit = null; setView("liq"); window.scrollTo(0, 0); }
+  function openLiq(cid, plazo) { L.sel = cid; L.plazo = plazo || ""; L.area = ""; L.est = ""; L.q = ""; L.vista = plazo ? "pend" : ""; L.edit = null; setView("liq"); window.scrollTo(0, 0); }
   function liqChip(x) {
     return el("button", { type: "button", class: "chip" + (x.fecha < todayISO() ? " late" : ""), style: varsFor(x), title: "Plazos de liquidación\n" + x.titulo, onclick: (e) => { e.stopPropagation(); openLiq(x.contrato, x.fecha); } },
       el("span", { class: "lq", text: "§" }), el("span", { class: "tx", style: "flex:1", text: x.titulo }));
@@ -1436,7 +1445,9 @@ window.startApp = () => {
     if (!L.showHidden && x.oculto) return false;
     if (L.area && x.a !== L.area) return false;
     if (L.est && x.s !== L.est) return false;
-    if (L.pend && x.s === DONE_EST) return false;
+    if (L.vista === "pend" && x.s === DONE_EST) return false;
+    if (L.vista === "aprob" && x.s !== DONE_EST) return false;
+    if (L.vista === "venc" && !(x.s !== DONE_EST && x.pl && x.pl < todayISO())) return false;
     if (L.plazo && x.pl !== L.plazo) return false;
     if (L.q && !fold([x.q, x.o, x.rp, x.ri].filter(Boolean).join(" ")).includes(fold(L.q))) return false;
     return true;
@@ -1465,36 +1476,41 @@ window.startApp = () => {
     }
     const items = annotate(liqItems(c.id)), st = liqStats(c.id);
     parts.push(el("div", { class: "lq-stats" },
-      el("div", { class: "lq-pct", style: colorVars(c.color) }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales aprobados por IDU" + (st.late ? " · " : "") }, st.late ? el("span", { class: "late", text: st.late + " con plazo vencido" }) : null)),
+      el("div", { class: "lq-pct", style: colorVars(c.color) }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales aprobados por IDU" + (st.late ? " · " : "") }, st.late ? el("span", { class: "late", text: "plazo vencido: " + st.lateP + (st.lateP === 1 ? " principal" : " principales") + " y " + st.lateE + (st.lateE === 1 ? " entregable" : " entregables") }) : null)),
       stackBar(st.cnt),
-      el("div", { class: "est-chips" }, EST.map((e) => el("button", { type: "button", "aria-pressed": String(L.est === e), onclick: () => { L.est = L.est === e ? "" : e; renderLiq(); } }, el("i", { style: "background:" + EST_C[e] }), EST_L[e] + " · " + st.cnt[e]))),
-      el("span", { class: "muted", text: "Los números cuentan los requisitos principales de todo el contrato. Toca un estado para filtrar el listado." })));
+      el("div", { class: "est-legend" }, EST.map((e) => el("span", null, el("i", { style: "background:" + EST_C[e] }), EST_L[e] + " ", el("b", { text: String(st.cnt[e]) })))),
+      el("span", { class: "muted", text: "Resumen del contrato: requisitos principales en cada estado." })));
     const imp = items.filter((x) => x.n === "x");
     if (imp.length) parts.push(el("div", { class: "lq-imp" }, el("b", { text: "Importantes" }), imp.map((x) => el("span", { text: x.q + (x.o ? " — " + x.o : "") }))));
     const kv = (rows) => el("div", { class: "kv" }, rows.flatMap((r) => r.length < 2 ? [el("span", { class: "hd", text: String(r[0]) })] : [el("span", { text: String(r[0]) }), el("span", { text: money(r[1]) })]));
     if (doc.datos) parts.push(el("details", { class: "lq-dt" }, el("summary", { text: "Datos del contrato" }), kv(doc.datos)));
     if (doc.fin) parts.push(el("details", { class: "lq-dt" }, el("summary", { text: "Información financiera" }), kv(doc.fin)));
-    const areas = [...new Set(items.filter((x) => x.a && x.n !== "x").map((x) => x.a))];
+    // ---- Filtros: todo en una franja ----
+    const areas = [...new Set(items.filter((x) => x.a && x.n !== "x").map((x) => x.a))].sort();
+    const cap = (a) => a[0] + a.slice(1).toLowerCase();
+    const t0f = todayISO();
+    const cuenta = (f) => items.filter((x) => x.n === "p" && !x.oculto && f(x)).length;
+    const VISTAS = [["", "Todos", cuenta(() => true)], ["pend", "Pendientes", cuenta((x) => x.s !== DONE_EST)], ["venc", "Vencidos", cuenta((x) => x.s !== DONE_EST && x.pl && x.pl < t0f)], ["aprob", "Aprobados por IDU", cuenta((x) => x.s === DONE_EST)]];
     const search = el("input", { type: "search", placeholder: "Buscar requisito, responsable u observación", value: L.q, "aria-label": "Buscar en la lista de chequeo" });
     search.addEventListener("input", () => { L.q = search.value; clearTimeout(search._t); search._t = setTimeout(() => { renderLiq(); const s2 = $("v-liq").querySelector('input[type="search"]'); if (s2) { s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); } }, 250); });
     const hiddenN = items.filter((x) => x.oculto).length;
-    parts.push(el("div", { class: "lq-filters" }, search,
-      el("label", null, el("input", { type: "checkbox", checked: L.pend, onchange: (e) => { L.pend = e.target.checked; renderLiq(); } }), "Solo pendientes"),
-      hiddenN ? el("label", null, el("input", { type: "checkbox", checked: L.showHidden, onchange: (e) => { L.showHidden = e.target.checked; renderLiq(); } }), "Ver los que no aplican (" + hiddenN + ")") : null,
-      L.plazo ? el("button", { type: "button", class: "btn", style: "padding:5px 10px;font-size:12px", onclick: () => { L.plazo = ""; L.pend = false; renderLiq(); } }, "Plazo " + fmtD(L.plazo) + " ✕") : null));
-    parts.push(el("div", { class: "chips" }, el("button", { type: "button", "aria-pressed": String(!L.area), text: "Todas las áreas", onclick: () => { L.area = ""; renderLiq(); } }),
-      areas.map((a) => el("button", { type: "button", "aria-pressed": String(L.area === a), text: a[0] + a.slice(1).toLowerCase(), onclick: () => { L.area = L.area === a ? "" : a; renderLiq(); } }))));
-    const flt = [L.plazo && "plazo " + fmtD(L.plazo), L.est && EST_L[L.est], L.area && "área " + L.area[0] + L.area.slice(1).toLowerCase(), L.pend && "solo pendientes", L.q && "búsqueda “" + L.q + "”"].filter(Boolean);
-    if (flt.length) {
-      const nP = items.filter((x) => x.n === "p" && liqFilterMatch(x)).length, nE = items.filter((x) => x.n === "e" && liqFilterMatch(x)).length;
-      parts.push(el("div", { class: "lq-flt" }, el("span", null, "Mostrando ", el("b", { text: nP + (nP === 1 ? " requisito principal" : " requisitos principales") + " y " + nE + (nE === 1 ? " entregable" : " entregables") }), " · filtros: " + flt.join(", ")),
-        el("button", { type: "button", class: "btn", style: "padding:5px 10px;font-size:12px", text: "Quitar filtros", onclick: () => { L.plazo = ""; L.est = ""; L.area = ""; L.pend = false; L.q = ""; renderLiq(); } })));
-    }
+    const selEst = el("select", { "aria-label": "Filtrar por estado", onchange: (e) => { L.est = e.target.value; renderLiq(); } }, el("option", { value: "", text: "Todos los estados" }), EST.map((e) => el("option", { value: e, text: EST_L[e], selected: L.est === e })));
+    const selArea = el("select", { "aria-label": "Filtrar por área", onchange: (e) => { L.area = e.target.value; renderLiq(); } }, el("option", { value: "", text: "Todas las áreas" }), areas.map((a) => el("option", { value: a, text: cap(a), selected: L.area === a })));
+    const total = cuenta(() => true), nP = items.filter((x) => x.n === "p" && liqFilterMatch(x)).length, nE = items.filter((x) => x.n === "e" && liqFilterMatch(x)).length;
+    const activos = [L.vista && VISTAS.find((v) => v[0] === L.vista)[1], L.est && EST_L[L.est], L.area && cap(L.area), L.plazo && "plazo " + fmtD(L.plazo), L.q && "“" + L.q + "”"].filter(Boolean);
+    parts.push(el("div", { class: "lq-fbox" },
+      el("div", { class: "lq-views", role: "group", "aria-label": "Vista rápida" }, VISTAS.map(([k, t, n]) => el("button", { type: "button", "aria-pressed": String((L.vista || "") === k), onclick: () => { L.vista = k; renderLiq(); } }, t + " ", el("b", { text: String(n) })))),
+      el("div", { class: "lq-frow" }, fld("Estado", selEst), fld("Área", selArea), el("div", { class: "field lq-search" }, el("label", { text: "Buscar" }), search)),
+      el("div", { class: "lq-fsum" },
+        el("span", null, "Mostrando ", el("b", { text: nP + " de " + total }), " requisitos principales" + (nE ? " y " + nE + (nE === 1 ? " entregable" : " entregables") : "") + (activos.length ? " · " + activos.join(" · ") : "")),
+        el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;align-items:center" },
+          hiddenN ? el("label", null, el("input", { type: "checkbox", checked: L.showHidden, onchange: (e) => { L.showHidden = e.target.checked; renderLiq(); } }), " Ver los que no aplican (" + hiddenN + ")") : null,
+          activos.length ? el("button", { type: "button", class: "btn", style: "padding:5px 10px;font-size:12px", text: "Quitar filtros", onclick: () => { L.plazo = ""; L.est = ""; L.area = ""; L.vista = ""; L.q = ""; renderLiq(); } }) : null))));
     parts.push(liqList(c, items));
     box.replaceChildren(el("div", { class: "lq-wrap" }, parts));
   }
   function liqList(c, items) {
-    const t0 = todayISO(), filtering = !!(L.area || L.est || L.q || L.pend || L.plazo);
+    const t0 = todayISO(), filtering = !!(L.area || L.est || L.q || L.vista || L.plazo);
     const kids = {}; items.forEach((x) => { if (x.n === "e" && x.p && (L.showHidden || !x.oculto)) { (kids[x.p] = kids[x.p] || []).push(x); } });
     const visE = new Set(items.filter((x) => x.n === "e" && liqFilterMatch(x)).map((x) => x.r));
     const visP = new Set(items.filter((x) => x.n === "p" && (liqFilterMatch(x) || (kids[x.r] || []).some((k) => visE.has(k.r)))).map((x) => x.r));
