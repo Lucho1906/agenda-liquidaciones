@@ -1,0 +1,1823 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Liquidaciones">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Agenda de liquidaciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: barra lateral (crear, minicalendario, filtros) + vista principal (semana con horas / mes / pendientes e historial). Estilo nocturno, solo oscuro. */
+:root {
+  --bg: #0f1419; --side: #151b22; --card: #1c242d; --card2: #222c36; --line: #26303b; --grid: #1c232c;
+  --ink: #e6edf3; --muted: #8b98a5; --accent: #7dd3fc; --accent-ink: #0f1419;
+  --p1: #7dd3fc; --p1-bg: #1d3a4a; --p2: #ffa657; --p2-bg: #4a3220; --both: #c4b5fd; --both-bg: #2f2a4a;
+  --late: #ff7b72; --done: #56d364; --fest: #c79bf2; --warn: #f5c451; --none: #64748b;
+  --f: "Sora", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --H: 48px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f); font-size: 13px; line-height: 1.4; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app { display: flex; min-height: 100%; }
+.side { width: 250px; flex: none; background: var(--side); border-right: 1px solid var(--line); padding-block: 20px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; display: flex; flex-direction: column; gap: 18px; }
+.main { flex: 1; min-width: 0; padding-block: 18px 24px; padding-left: 20px; padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 860px) {
+  .app { flex-direction: column; }
+  .side { width: auto; border-right: 0; border-bottom: 1px solid var(--line); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .main { padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+  .mini, .legend { display: none; }
+}
+.brand b { display: block; font-size: 17px; font-weight: 700; }
+.brand span { font-size: 11px; color: var(--muted); }
+.row2 { display: flex; gap: 6px; }
+.btn { border: 1px solid var(--line); background: var(--card); border-radius: 9px; padding: 8px 12px; font-weight: 600; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.ghost { background: transparent; color: var(--accent); border-color: var(--accent); }
+.btn.danger { color: var(--late); }
+.btn.danger.armed { background: var(--late); color: var(--bg); border-color: var(--late); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.row2 .btn { flex: 1; }
+.lbl { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.mini { display: flex; flex-direction: column; gap: 6px; }
+.mini-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; text-transform: capitalize; }
+.mini-head button { background: none; border: 0; color: var(--muted); padding: 2px 6px; }
+.mini-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
+.mini-grid .dw { color: var(--muted); font-size: 10px; padding: 2px 0; }
+.mini-grid button { background: none; border: 0; border-radius: 5px; padding: 4px 0; color: var(--ink); }
+.mini-grid button.out { color: #4d5866; }
+.mini-grid button.wk { background: #1f2a35; }
+.mini-grid button.today { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.mini-grid button.fest { color: var(--fest); }
+.filters { display: flex; flex-direction: column; gap: 8px; }
+.filt { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.filt input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); }
+.filt .sw { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.filt .n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend { background: var(--card); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.legend span { display: flex; align-items: center; gap: 8px; }
+.pb { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 16px; padding: 0 4px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: .02em; background: rgb(255 255 255 / .14); color: var(--ink); flex: none; }
+.pb.both { background: rgb(255 255 255 / .26); }
+.clist { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.clist .filt { font-size: 12px; }
+.clist .filt .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clist .filt .cd { color: var(--muted); font-size: 10.5px; flex: none; }
+.link-btn { background: none; border: 0; color: var(--accent); padding: 0; font-size: 12px; text-align: left; }
+.cm-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 8px; align-items: center; }
+.cm-row input { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 7px 9px; width: 100%; min-width: 0; }
+.cm-row.arch input { opacity: .5; }
+.swatch { width: 26px; height: 26px; border-radius: 7px; border: 2px solid rgb(255 255 255 / .2); background: var(--c); padding: 0; }
+.palette { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 6px 36px; }
+.palette button { width: 22px; height: 22px; border-radius: 6px; border: 2px solid transparent; background: var(--c); padding: 0; }
+.palette button[aria-pressed="true"] { border-color: var(--ink); }
+.cm-list { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; }
+.qa { display: flex; align-items: center; gap: 8px; background: var(--side); border: 1px solid var(--line); border-radius: 12px; padding: 6px 6px 6px 12px; }
+.qa:focus-within { border-color: var(--accent); }
+.qa-ic { color: var(--accent); font-weight: 700; font-size: 16px; flex: none; }
+.qa input { flex: 1; min-width: 0; background: transparent; border: 0; padding: 7px 2px; outline: none; }
+.qa input::placeholder { color: #6b7785; }
+.qa .btn { padding: 6px 10px; font-size: 12px; }
+.qa-prev { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 11.5px; min-height: 24px; }
+.qa-prev .pp { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 3px 9px; background: var(--card); }
+.qa-prev .pp.warn { color: var(--late); background: color-mix(in srgb, var(--late) 14%, var(--bg)); }
+.qa-prev .hint { color: var(--muted); }
+.qa-prev kbd { font: inherit; font-size: 10.5px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--muted); }
+.mt { touch-action: none; }
+.mt.drag { cursor: grab; }
+.mt.dragging { opacity: .85; box-shadow: 0 8px 24px rgb(0 0 0 / .45); z-index: 5; cursor: grabbing; }
+.mt .rs { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; }
+.mt .rs::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 18px; margin-left: -9px; height: 2px; border-radius: 2px; background: rgb(255 255 255 / .35); opacity: 0; }
+.mt:hover .rs::after { opacity: 1; }
+.rep { font-size: 10px; opacity: .8; flex: none; }
+.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
+[draggable="true"] { cursor: grab; }
+.note-s { margin: 0; font-size: 11.5px; color: var(--muted); background: var(--card); border-radius: 8px; padding: 8px 10px; }
+/* Agenda (lista por días) */
+.agenda { display: flex; flex-direction: column; gap: 12px; }
+.strip { display: grid; grid-template-columns: 32px repeat(7, minmax(0, 1fr)) 32px; gap: 4px; align-items: center; }
+.strip .sbtn { background: none; border: 0; color: var(--muted); font-size: 18px; padding: 8px 0; }
+.sd { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 0 6px; border-radius: 12px; background: none; border: 0; color: var(--ink); min-width: 0; }
+.sd span { font-size: 10px; color: var(--muted); }
+.sd b { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sd i { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
+.sd i.has { background: var(--muted); }
+.sd.today b { color: var(--accent); }
+.sd.fest b { color: var(--fest); }
+.sd.sel { background: var(--accent); }
+.sd.sel b, .sd.sel span { color: var(--accent-ink); }
+.sd.sel i.has { background: var(--accent-ink); }
+.ag { display: flex; flex-direction: column; gap: 16px; }
+.ag-day { display: flex; flex-direction: column; gap: 6px; }
+.ag-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 600; font-size: 13px; padding: 0 2px; }
+.ag-h em { font-style: normal; font-weight: 400; font-size: 11px; color: var(--fest); }
+.ag-h.late { color: var(--late); }
+.ag-free { font-size: 12px; color: #5d6875; padding: 0 2px; }
+.ar { display: flex; gap: 10px; align-items: stretch; padding: 10px 12px; border-radius: 12px; background: var(--side); border: 0; text-align: left; color: var(--ink); width: 100%; min-width: 0; }
+.ar.meet { background: var(--bgc); }
+.ar .at { display: flex; flex-direction: column; width: 44px; flex: none; font-variant-numeric: tabular-nums; }
+.ar .at b { font-size: 13px; font-weight: 600; }
+.ar .at small { font-size: 11px; color: var(--muted); }
+.ar .abar { width: 3px; border-radius: 2px; background: var(--c); flex: none; }
+.ar .ab { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ar .ab b { font-weight: 600; overflow-wrap: anywhere; }
+.ar .ab small { font-size: 11.5px; color: var(--muted); }
+.ar input[type="checkbox"] { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--done); flex: none; }
+.ar .tb { background: none; border: 0; padding: 0; color: var(--ink); text-align: left; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ar.done .tb b { text-decoration: line-through; color: var(--muted); }
+.ar.late { box-shadow: inset 0 0 0 1px var(--late); }
+.cdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--c); margin-right: 5px; vertical-align: 1px; }
+.mdots { display: none; gap: 3px; flex-wrap: wrap; }
+.mdots i { width: 6px; height: 6px; border-radius: 50%; }
+
+.side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
+.side-foot .btn { text-align: left; background: transparent; border-color: transparent; color: var(--muted); padding: 6px 4px; font-weight: 500; }
+.side-foot .btn:hover { color: var(--ink); }
+
+.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.top .eyebrow { font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.top h1 { margin: 0; font-size: 24px; font-weight: 700; text-wrap: balance; }
+.top .status { font-size: 11px; color: var(--muted); }
+.nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.seg { display: flex; gap: 2px; background: var(--card); border-radius: 10px; padding: 4px; }
+.seg button { border: 0; background: transparent; color: var(--muted); padding: 6px 12px; border-radius: 7px; }
+.seg button[aria-pressed="true"] { background: #2a333d; color: var(--ink); font-weight: 600; }
+.notice { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: var(--muted); }
+.notice b { color: var(--ink); }
+
+/* Semana */
+.week-wrap { flex: 1; min-height: 0; overflow-x: auto; display: flex; flex-direction: column; }
+.week { min-width: 760px; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.wk-row { display: grid; grid-template-columns: 48px repeat(7, minmax(0, 1fr)); gap: 0 6px; }
+.dh { display: flex; flex-direction: column; padding: 4px 8px; border-radius: 8px; cursor: pointer; background: none; border: 0; text-align: left; color: var(--ink); }
+.dh:hover { background: var(--card); }
+.dh .dw { font-size: 10px; color: var(--muted); letter-spacing: .06em; }
+.dh .dn { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dh .df { font-size: 9.5px; color: var(--fest); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dh.today { background: #18232e; } .dh.today .dn { color: var(--accent); }
+.dh.festd .dn { color: var(--fest); }
+.allday-l { font-size: 9.5px; color: var(--muted); padding-top: 8px; }
+.allday { display: flex; flex-direction: column; gap: 3px; padding: 6px 0; min-height: 44px; border-bottom: 1px solid var(--line); min-width: 0; }
+.chip { display: flex; gap: 6px; align-items: center; font-size: 11px; padding: 3px 6px; border-radius: 6px; background: var(--card); border: 0; text-align: left; width: 100%; min-width: 0; color: var(--ink); }
+.chip:hover { background: var(--card2); }
+.chip .bx { width: 13px; height: 13px; border-radius: 4px; flex: none; border: 2px solid var(--c); }
+.chip.done .bx { background: var(--done); border-color: var(--done); }
+.chip.done .tx { text-decoration: line-through; opacity: .55; }
+.chip.late { box-shadow: inset 0 0 0 1px var(--late); }
+.chip .tx { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scroller { height: max(360px, calc(100vh - 215px)); overflow-y: auto; position: relative; margin-top: 4px; }
+.tgrid { display: grid; grid-template-columns: 48px repeat(7, minmax(0, 1fr)); gap: 0 6px; position: relative; }
+.hcol { position: relative; }
+.hcol span { position: absolute; right: 6px; font-size: 10px; color: var(--muted); transform: translateY(-6px); font-variant-numeric: tabular-nums; }
+.dcol { position: relative; border-radius: 8px; cursor: copy; }
+.dcol.wkend { background: #12181e; }
+.dcol.today { background: #131c24; }
+.hl { position: absolute; left: 0; right: 0; border-top: 1px solid var(--grid); pointer-events: none; }
+.mt { position: absolute; border-radius: 7px; padding: 4px 7px; display: flex; flex-direction: column; gap: 1px; overflow: hidden; font-size: 11px; color: var(--ink); background: var(--bgc); border: 0; border-left: 3px solid var(--c); text-align: left; cursor: pointer; }
+.mt:hover { filter: brightness(1.15); }
+.mt b { font-weight: 600; line-height: 1.25; }
+.mt i { font-style: normal; opacity: .8; font-size: 10px; }
+.mt.done { opacity: .5; }
+.now { position: absolute; left: 0; right: 0; border-top: 2px solid var(--late); pointer-events: none; }
+.now::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--late); }
+
+/* Mes */
+.month { flex: 1; display: flex; flex-direction: column; gap: 6px; overflow-x: auto; }
+.m-dows, .m-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; min-width: 620px; }
+.m-dows span { font-size: 10px; color: var(--muted); letter-spacing: .08em; padding: 0 6px; }
+.m-grid { grid-auto-rows: minmax(104px, 1fr); flex: 1; }
+.mc { border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow: hidden; background: var(--side); cursor: copy; }
+.mc.out { background: transparent; }
+.mc.today { background: #18232e; box-shadow: inset 0 0 0 1px var(--accent); }
+.mc .num { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; font-size: 12px; font-weight: 700; }
+.mc .num em { font-style: normal; font-size: 9px; font-weight: 400; color: var(--fest); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc.festd .num b { color: var(--fest); }
+.mc.today .num b { color: var(--accent); }
+.mi { display: flex; gap: 5px; align-items: center; font-size: 10.5px; padding: 2px 6px; border-radius: 5px; border: 0; text-align: left; color: var(--ink); background: none; min-width: 0; width: 100%; }
+.mi.meet { background: var(--bgc); }
+.mi .tm { font-weight: 600; color: var(--c); flex: none; }
+.mi .bx { width: 9px; height: 9px; border-radius: 3px; flex: none; border: 1.5px solid var(--c); }
+.mi.done { opacity: .5; text-decoration: line-through; } .mi.done .bx { background: var(--done); border-color: var(--done); }
+.mi.late { color: var(--late); } .mi.late .bx { border-color: var(--late); }
+.mi .tx { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.more { font-size: 10px; color: var(--muted); padding: 0 6px; }
+
+/* Pendientes e historial */
+.ph { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1000px) { .ph { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--side); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.panel h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.panel-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips button { border: 0; border-radius: 999px; padding: 5px 11px; background: var(--card); color: var(--ink); font-size: 12px; }
+.chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); font-weight: 600; }
+.grp-l { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; color: var(--muted); margin-top: 4px; }
+.grp-l.late { color: var(--late); }
+.tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 9px 10px; border-radius: 10px; background: var(--card); }
+.tr input[type="checkbox"] { width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--done); }
+.tr .t { background: none; border: 0; padding: 0; text-align: left; font-weight: 600; overflow-wrap: anywhere; color: var(--ink); }
+.tr .t:hover { text-decoration: underline; }
+.tr .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--muted); margin-top: 2px; align-items: center; }
+.tr .who { display: inline-flex; align-items: center; gap: 5px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; background: var(--c); }
+.tr .dt { font-size: 11px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tr .dt.late { color: var(--late); font-weight: 600; }
+.tr.done .t { text-decoration: line-through; color: var(--muted); }
+.feed { display: flex; flex-direction: column; position: relative; }
+.feed::before { content: ""; position: absolute; left: 11px; top: 8px; bottom: 8px; border-left: 1px solid #2a333d; }
+.fe { display: flex; gap: 12px; padding: 7px 0; position: relative; }
+.fe .ic { width: 23px; height: 23px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--bg); background: var(--c); }
+.fe .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fe .when { font-size: 10.5px; color: var(--muted); }
+.fe .txt { line-height: 1.45; overflow-wrap: anywhere; }
+.fe .txt b { font-weight: 600; }
+.fe .note { font-size: 11.5px; background: var(--card); border-radius: 8px; padding: 6px 8px; color: #c9d1d9; }
+.empty { padding: 26px 12px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.empty b { color: var(--ink); font-size: 14px; }
+
+/* Diálogo */
+dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--side); color: var(--ink); width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); }
+dialog::backdrop { background: rgb(0 0 0 / .55); }
+.dlg { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+.dlg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dlg-head h2 { margin: 0; font-size: 17px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 480px) { .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); } }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label, .field .lbl2 { font-size: 10.5px; color: var(--muted); letter-spacing: .04em; }
+.field input, .field select, .field textarea { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 10px; width: 100%; }
+.field textarea { min-height: 64px; resize: vertical; }
+.avances { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow: auto; }
+.av { border-left: 2px solid var(--line); padding: 2px 0 2px 10px; font-size: 12.5px; }
+.av .when { font-size: 10.5px; color: var(--muted); }
+.av-add { display: flex; gap: 8px; }
+.av-add input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+.dlg-foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.dlg-foot .right { display: flex; gap: 8px; flex-wrap: wrap; }
+.err { color: var(--late); font-size: 12.5px; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 12.5px; z-index: 20; }
+/* Elementos solo de celular */
+.m-only { display: none; }
+.bnav, .fab, .backdrop { display: none; }
+@media (max-width: 700px) {
+  body { font-size: 14px; }
+  .m-only { display: inline-flex; }
+  .d-only { display: none !important; }
+  .app { flex-direction: column; }
+  .side { position: fixed; z-index: 30; top: 0; bottom: 0; left: 0; width: min(86vw, 330px); overflow-y: auto; border-right: 1px solid var(--line); border-bottom: 0; padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); padding-right: 16px; transform: translateX(-105%); transition: transform .2s ease; }
+  body.drawer .side { transform: none; }
+  .mini, .legend { display: flex; }
+  .backdrop { position: fixed; inset: 0; z-index: 25; background: rgb(0 0 0 / .5); }
+  body.drawer .backdrop { display: block; }
+  .main { padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); padding-top: 12px; padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); gap: 10px; }
+  .top { flex-wrap: nowrap; align-items: center; }
+  .top > div:first-of-type { flex: 1; min-width: 0; }
+  .top h1 { font-size: 19px; white-space: nowrap; text-wrap: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #prev, #next { display: none !important; }
+  .top .eyebrow { font-size: 10px; }
+  .nav .seg { display: none; }
+  .nav { flex-wrap: nowrap; gap: 4px; }
+  .nav .btn { padding: 8px 10px; }
+  .icon-btn { background: none; border: 0; color: var(--ink); padding: 8px; margin-left: -8px; }
+  .qa { padding-left: 10px; }
+  .qa-prev .hint0 { display: none; }
+  .bnav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--side) 94%, transparent); backdrop-filter: blur(10px); border-top: 1px solid var(--line); padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+  .bnav button { background: none; border: 0; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; padding: 6px 0; border-radius: 10px; }
+  .bnav button svg { width: 22px; height: 22px; }
+  .bnav button[aria-pressed="true"] { color: var(--accent); }
+  .fab { display: flex; align-items: center; justify-content: center; position: fixed; z-index: 21; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; border-radius: 18px; border: 0; background: var(--accent); color: var(--accent-ink); font-size: 28px; font-weight: 600; box-shadow: 0 8px 24px rgb(0 0 0 / .4); }
+  .toast { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+  dialog { width: 100vw; max-width: 100vw; max-height: 92vh; margin: auto 0 0; border-radius: 18px 18px 0 0; border-bottom: 0; }
+  .dlg { padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .dlg .btn { padding: 10px 14px; }
+  .field input, .field select, .field textarea { padding: 10px 12px; font-size: 16px; }
+  .qa input, .av-add input, .cm-row input { font-size: 16px; }
+  .m-grid { grid-auto-rows: minmax(58px, 1fr); gap: 4px; min-width: 0; }
+  .m-dows { gap: 4px; min-width: 0; }
+  .month { overflow-x: visible; }
+  .mc { padding: 5px; cursor: pointer; }
+  .mc .mi, .mc .more, .mc .num em { display: none; }
+  .mdots { display: flex; }
+  .ph { grid-template-columns: minmax(0, 1fr); }
+}
+/* Liquidaciones */
+.lq-wrap { display: flex; flex-direction: column; gap: 14px; }
+.lq-sec { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; }
+.lq-sec h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.lq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.lq-grid.small { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.lq-card { background: var(--side); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; text-align: left; color: var(--ink); min-width: 0; }
+.lq-card:hover { border-color: var(--muted); border-left-color: var(--c); }
+.lq-card.mini { gap: 6px; padding: 12px 14px; }
+.lq-ch { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lq-ch b { font-size: 15px; font-weight: 600; }
+.lq-ch .dot, .lq-title .dot { background: var(--c); }
+.cd { color: var(--muted); font-size: 11.5px; }
+.tag { font-size: 10.5px; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--muted); white-space: nowrap; }
+.lq-pct { display: flex; align-items: baseline; gap: 10px; }
+.lq-pct b { font-size: 26px; font-weight: 700; color: var(--c); font-variant-numeric: tabular-nums; }
+.lq-pct span { font-size: 12px; color: var(--muted); }
+.sbar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--card); gap: 2px; }
+.sbar span { min-width: 4px; }
+.lq-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+.late { color: var(--late) !important; }
+.muted { color: var(--muted); font-size: 12px; }
+.lq-legal { font-size: 12px; color: var(--ink); background: var(--card); border-radius: 8px; padding: 6px 9px; }
+.lq-legal.muted { color: var(--muted); }
+.lq-head { display: flex; flex-direction: column; gap: 12px; }
+.lq-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lq-title h2 { margin: 0; font-size: 22px; font-weight: 700; }
+.lq-title .dot { width: 12px; height: 12px; }
+.lq-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.lq-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.lq-step { background: var(--side); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.lq-step b { font-size: 15px; }
+.lq-step small { font-size: 11.5px; color: var(--muted); }
+.lq-step.cur { box-shadow: inset 0 0 0 1px var(--accent); }
+.lq-step.cur small { color: var(--accent); }
+.lq-step.past { opacity: .55; }
+.lq-note { background: var(--side); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--muted); }
+.lq-stats { display: flex; flex-direction: column; gap: 10px; background: var(--side); border-radius: 12px; padding: 12px; }
+.est-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.est-chips button { border: 1px solid transparent; border-radius: 999px; padding: 4px 10px; background: var(--card); color: var(--ink); font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
+.est-chips button[aria-pressed="true"] { border-color: var(--ink); }
+.est-chips i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.lq-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lq-filters input[type="search"] { flex: 1 1 200px; min-width: 0; border: 1px solid var(--line); background: var(--side); border-radius: 9px; padding: 8px 10px; }
+.lq-filters label { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); cursor: pointer; }
+.lq-imp { background: color-mix(in srgb, var(--warn) 9%, var(--side)); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.lq-imp b { color: var(--warn); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+details.lq-dt { background: var(--side); border-radius: 12px; padding: 10px 12px; }
+details.lq-dt summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.kv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 5px 14px; font-size: 12px; margin-top: 10px; }
+.kv span:nth-child(odd) { color: var(--muted); }
+.kv span { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.kv .hd { grid-column: 1 / -1; color: var(--ink) !important; font-weight: 600; margin-top: 6px; }
+.lq-list { display: flex; flex-direction: column; gap: 1px; background: var(--side); border-radius: 12px; padding: 6px 8px 10px; }
+.lq-et { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 600; padding: 12px 6px 4px; }
+.lq-g { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; padding: 12px 6px 6px; border-top: 1px solid var(--line); margin-top: 4px; }
+.lq-r { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 7px 6px; border-radius: 8px; }
+.lq-r:hover { background: var(--card); }
+.lq-r.p .lq-q { font-weight: 600; }
+.lq-r.e { padding-left: 28px; }
+.lq-r.hid { opacity: .45; }
+.lq-r.nuevo .lq-q::after { content: " · agregado"; color: var(--accent); font-size: 10.5px; font-weight: 400; }
+.chev { background: none; border: 0; color: var(--muted); padding: 0; width: 22px; height: 22px; font-size: 13px; }
+.lq-q { background: none; border: 0; padding: 0; text-align: left; color: var(--ink); overflow-wrap: anywhere; cursor: pointer; }
+.lq-q:hover { text-decoration: underline; }
+.lq-m { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 11px; color: var(--muted); margin-top: 3px; align-items: center; }
+.lq-m .obs { color: #aab4bf; font-style: italic; }
+select.est { -webkit-appearance: none; appearance: none; border: 1px solid color-mix(in srgb, var(--e) 55%, transparent); background: color-mix(in srgb, var(--e) 16%, var(--bg)); color: var(--ink); border-radius: 999px; padding: 4px 12px; font-size: 11px; font-weight: 600; max-width: 180px; cursor: pointer; }
+.lq-ed { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 2px 0 6px; }
+.lq-ed .full { grid-column: 1 / -1; }
+.lq-ed .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
+.lq-ed .acts div { display: flex; gap: 8px; flex-wrap: wrap; }
+.lq-add { display: flex; gap: 8px; padding: 4px 6px 8px 34px; }
+.lq-add input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 7px 9px; }
+.chip .lq, .ar .lq { font-weight: 700; color: var(--c); flex: none; }
+@media (max-width: 700px) {
+  .lq-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lq-steps { grid-template-columns: minmax(0, 1fr); }
+  .lq-ed { grid-template-columns: minmax(0, 1fr); }
+  .lq-r { grid-template-columns: 22px minmax(0, 1fr); }
+  .lq-r > select.est { grid-column: 2; justify-self: start; }
+  .lq-r.e { padding-left: 14px; }
+  .lq-grid, .lq-grid.small { grid-template-columns: minmax(0, 1fr); }
+  .bnav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .bnav button { font-size: 9.5px; }
+}
+</style>
+<style>
+html { padding-top: env(safe-area-inset-top, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+</style>
+</head>
+<body>
+<style>
+.login { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); }
+.lg-card { width: min(400px, 100%); background: var(--side); border: 1px solid var(--line); border-radius: 18px; padding: 26px 22px; display: flex; flex-direction: column; gap: 16px; }
+.lg-card h1 { margin: 0; font-size: 22px; font-weight: 700; }
+.lg-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.lg-card form { display: flex; flex-direction: column; gap: 10px; }
+.lg-card label { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+.lg-card input { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 12px 14px; font-size: 16px; width: 100%; }
+.lg-card #lg-code { letter-spacing: .4em; font-size: 22px; text-align: center; font-variant-numeric: tabular-nums; }
+.lg-card .btn { padding: 12px; font-size: 14px; }
+.lg-card .link-btn { align-self: flex-start; }
+.lg-mark { width: 44px; height: 44px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; }
+#lg-msg { font-size: 12.5px; color: var(--muted); min-height: 18px; }
+#lg-msg.bad { color: var(--late); }
+.who-box { font-size: 11px; color: var(--muted); padding: 4px 4px 0; overflow-wrap: anywhere; }
+.acc-list { display: flex; flex-direction: column; gap: 8px; }
+.acc-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--card); border-radius: 10px; padding: 10px 12px; }
+.acc-row div { display: flex; flex-direction: column; min-width: 0; }
+.acc-row b { font-weight: 600; overflow-wrap: anywhere; }
+.acc-row small { color: var(--muted); font-size: 11.5px; }
+</style>
+<div class="login" id="login" hidden>
+  <div class="lg-card">
+    <div class="lg-mark" aria-hidden="true">LQ</div>
+    <h1>Agenda de liquidaciones</h1>
+    <div id="lg-1" hidden>
+      <form id="lg-form1">
+        <p>Escribe tu correo y te enviamos un código para entrar.</p>
+        <label for="lg-email">Correo</label>
+        <input id="lg-email" type="email" autocomplete="email" inputmode="email" placeholder="nombre@cimelec.co" required>
+        <button class="btn primary" type="submit" id="lg-send">Enviar código</button>
+      </form>
+    </div>
+    <div id="lg-2" hidden>
+      <form id="lg-form2">
+        <p>Enviamos un correo a <b id="lg-sent"></b>. Ábrelo <b>en este mismo dispositivo</b> y toca el enlace para entrar. Si no llega en un par de minutos, revisa el correo no deseado.</p>
+        <label for="lg-code">Si el correo trae un código, escríbelo aquí</label>
+        <input id="lg-code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="••••••">
+        <button class="btn primary" type="submit" id="lg-enter">Entrar</button>
+        <button class="link-btn" type="button" id="lg-back">Usar otro correo</button>
+      </form>
+    </div>
+    <div id="lg-3" hidden>
+      <p>La cuenta <b id="lg-who"></b> no tiene acceso a esta agenda. Pídele al coordinador que la agregue en Accesos.</p>
+      <button class="btn" type="button" id="lg-out">Cerrar sesión</button>
+    </div>
+    <div id="lg-msg" role="status"></div>
+  </div>
+</div>
+<dialog id="dlg-acc" aria-labelledby="acc-title">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="acc-title">Accesos</h2><button class="btn" type="button" id="acc-close" aria-label="Cerrar">✕</button></div>
+    <p class="note-s">Solo los correos de esta lista pueden entrar. Las personas que agregues aquí entran como ingeniera: pueden ver y editar la agenda y las liquidaciones, pero no el historial.</p>
+    <div class="acc-list" id="acc-list"></div>
+    <form id="acc-form" class="grid2" novalidate>
+      <div class="field"><label for="acc-email">Correo</label><input id="acc-email" type="email" placeholder="nombre@outlook.com"></div>
+      <div class="field"><label for="acc-name">Nombre (opcional)</label><input id="acc-name" maxlength="60"></div>
+      <div class="field" style="grid-column:1/-1"><button class="btn primary" type="submit">Dar acceso</button></div>
+    </form>
+    <div class="err" id="acc-err" hidden></div>
+  </div>
+</dialog>
+
+<div id="app-root" hidden>
+
+
+<div class="app">
+  <aside class="side" aria-label="Controles">
+    <div class="brand"><b>Agenda del equipo</b><span id="status">Conectando…</span></div>
+    <div class="row2">
+      <button class="btn primary" id="btn-meet" type="button">+ Reunión</button>
+      <button class="btn ghost" id="btn-task" type="button">+ Tarea</button>
+    </div>
+    <div class="mini" aria-label="Minicalendario">
+      <div class="mini-head"><button type="button" id="mini-prev" aria-label="Mes anterior">‹</button><span id="mini-title"></span><button type="button" id="mini-next" aria-label="Mes siguiente">›</button></div>
+      <div class="mini-grid" id="mini"></div>
+    </div>
+    <div class="filters">
+      <span class="lbl">Mostrar</span>
+      <label class="filt"><input type="checkbox" id="f-p1" checked><span class="pb" id="b-p1">CO</span><span id="n-p1" title="Coordinador de liquidaciones">Coordinador</span><span class="n" id="c-p1"></span></label>
+      <label class="filt"><input type="checkbox" id="f-p2" checked><span class="pb" id="b-p2">IN</span><span id="n-p2" title="Ingeniera de liquidaciones">Ingeniera</span><span class="n" id="c-p2"></span></label>
+      <label class="filt"><input type="checkbox" id="f-both" checked><span class="pb both" id="b-both">CI</span><span>Reuniones de ambos</span><span class="n" id="c-both"></span></label>
+    </div>
+    <div class="filters">
+      <div style="display: flex; justify-content: space-between; align-items: center;"><span class="lbl">Contratos</span><button type="button" class="link-btn" id="c-all">Ver todos</button></div>
+      <div class="clist" id="clist"></div>
+      <button type="button" class="link-btn" id="btn-contracts">Gestionar contratos</button>
+    </div>
+    <div class="legend" aria-label="Cómo leer el calendario">
+      <span class="lbl">Cómo leerlo</span>
+      <span><span style="width: 18px; height: 12px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 24%, var(--side)); border-left: 3px solid var(--accent);"></span>Reunión (color del contrato)</span>
+      <span><span style="width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--accent);"></span>Tarea con fecha límite</span>
+      <span><span class="pb">CO</span>Responsable</span>
+      <span><span style="width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--late);"></span>Vencida</span>
+    </div>
+    <div class="side-foot">
+      <button class="btn" id="btn-team" type="button">Nombres del equipo</button>
+      <button class="btn" id="btn-csv" type="button">Exportar a Excel (CSV)</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <button type="button" class="icon-btn m-only" id="btn-menu" aria-label="Abrir filtros y opciones"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <div><div class="eyebrow" id="eyebrow"></div><h1 id="title"></h1></div>
+      <div class="nav">
+        <button class="btn" id="prev" type="button" aria-label="Anterior">‹</button>
+        <button class="btn" id="today" type="button">Hoy</button>
+        <button class="btn" id="next" type="button" aria-label="Siguiente">›</button>
+        <div class="seg" role="group" aria-label="Vista">
+          <button type="button" data-view="agenda" aria-pressed="false">Agenda</button>
+          <button type="button" data-view="semana" aria-pressed="true">Semana</button>
+          <button type="button" data-view="mes" aria-pressed="false">Mes</button>
+          <button type="button" data-view="historial" aria-pressed="false">Pendientes e historial</button>
+          <button type="button" data-view="liq" aria-pressed="false">Liquidaciones</button>
+        </div>
+      </div>
+    </div>
+    <form class="qa" id="qa" autocomplete="off">
+      <span class="qa-ic" aria-hidden="true">+</span>
+      <input id="qa-in" aria-label="Creación rápida en una línea" placeholder="Escribe y presiona Enter: Reunión con ETB jueves 10am #1760 @ing">
+      <button class="btn" type="button" id="qa-more">Revisar</button>
+    </form>
+    <div class="qa-prev" id="qa-prev"></div>
+    <div class="notice" id="notice" hidden></div>
+    <section id="v-agenda" class="agenda" aria-label="Agenda" hidden></section>
+    <section id="v-semana" class="week-wrap" aria-label="Semana"></section>
+    <section id="v-mes" class="month" aria-label="Mes" hidden></section>
+    <section id="v-historial" aria-label="Pendientes e historial" hidden></section>
+    <section id="v-liq" aria-label="Liquidaciones" hidden></section>
+  </main>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlg-title">
+  <form class="dlg" id="form" novalidate>
+    <div class="dlg-head"><h2 id="dlg-title">Nueva tarea</h2><button class="btn" type="button" id="dlg-x" aria-label="Cerrar">✕</button></div>
+    <div class="seg" role="group" aria-label="Tipo" id="tipo-seg">
+      <button type="button" data-tipo="tarea" aria-pressed="true">Tarea</button>
+      <button type="button" data-tipo="reunion" aria-pressed="false">Reunión</button>
+    </div>
+    <div class="field"><label for="i-titulo" id="l-titulo">Qué hay que hacer</label><input id="i-titulo" maxlength="200" placeholder="Ej.: Radicar acta FO-IN-08 ETB"></div>
+    <div class="grid2">
+      <div class="field"><label for="i-resp">Responsable</label><select id="i-resp"></select></div>
+      <div class="field"><label for="i-proy">Contrato</label><select id="i-proy"></select></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label for="i-fecha" id="l-fecha">Fecha límite</label><input id="i-fecha" type="date"></div>
+      <div class="field"><label for="i-ini" id="l-ini">Hora (opcional)</label><input id="i-ini" type="time" step="900"></div>
+      <div class="field" id="w-fin"><label for="i-fin">Termina</label><input id="i-fin" type="time" step="900"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="i-rep">Repetir</label><select id="i-rep"></select></div>
+      <div class="field" id="w-hasta"><label for="i-hasta">Hasta (opcional)</label><input id="i-hasta" type="date"></div>
+    </div>
+    <p class="note-s" id="rep-note" hidden></p>
+    <div class="grid2" id="w-task-extra">
+      <div class="field"><label for="i-prio">Prioridad</label><select id="i-prio"><option value="alta">Alta</option><option value="media" selected>Media</option><option value="baja">Baja</option></select></div>
+      <div class="field"><label for="i-estado">Estado</label><select id="i-estado"><option value="pendiente">Pendiente</option><option value="curso">En curso</option><option value="hecha">Hecha</option></select></div>
+    </div>
+    <div class="field" id="w-lugar"><label for="i-lugar">Lugar o enlace</label><input id="i-lugar" maxlength="120" placeholder="Sala IDU, Teams, frente 2…"></div>
+    <div class="field"><label for="i-notas">Notas</label><textarea id="i-notas" maxlength="2000" placeholder="Detalles, contacto en la ESP, documentos…"></textarea></div>
+    <div class="field" id="w-av">
+      <span class="lbl2">Avances</span>
+      <div class="avances" id="av-list"></div>
+      <div class="av-add"><input id="i-av" maxlength="500" placeholder="Ej.: Se envió a revisión de interventoría" aria-label="Nuevo avance"><button class="btn" type="button" id="btn-av">Agregar</button></div>
+    </div>
+    <div class="err" id="err" hidden></div>
+    <div class="dlg-foot">
+      <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <button class="btn danger" type="button" id="btn-del1" hidden>Quitar solo esta fecha</button>
+        <button class="btn danger" type="button" id="btn-del">Eliminar</button>
+      </div>
+      <div class="right"><button class="btn" type="button" id="btn-cancel">Cancelar</button><button class="btn primary" type="submit" id="btn-save">Guardar</button></div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-team" aria-labelledby="team-title">
+  <form class="dlg" id="form-team" novalidate>
+    <div class="dlg-head"><h2 id="team-title">Nombres del equipo</h2></div>
+    <div class="field"><label for="t-p1">Coordinador de liquidaciones</label><input id="t-p1" maxlength="40"></div>
+    <div class="field"><label for="t-p2">Ingeniera de liquidaciones</label><input id="t-p2" maxlength="40"></div>
+    <div class="dlg-foot"><span></span><div class="right"><button class="btn" type="button" id="team-cancel">Cancelar</button><button class="btn primary" type="submit">Guardar</button></div></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-c" aria-labelledby="c-title">
+  <form class="dlg" id="form-c" novalidate>
+    <div class="dlg-head"><h2 id="c-title">Contratos</h2><button class="btn" type="button" id="c-x" aria-label="Cerrar">✕</button></div>
+    <p style="margin: 0; color: var(--muted); font-size: 12px;">Toca el color para cambiarlo. Archivar oculta el contrato de la lista de nuevas tareas, pero conserva su color en lo ya registrado.</p>
+    <div class="cm-list" id="cm-list"></div>
+    <button type="button" class="link-btn" id="cm-add">+ Agregar contrato</button>
+    <div class="err" id="c-err" hidden></div>
+    <div class="dlg-foot"><span></span><div class="right"><button class="btn" type="button" id="c-cancel">Cancelar</button><button class="btn primary" type="submit" id="c-save">Guardar</button></div></div>
+  </form>
+</dialog>
+<div class="toast" id="toast" hidden></div>
+<div class="backdrop" id="backdrop"></div>
+<button type="button" class="fab" id="fab" aria-label="Nueva tarea o reunión">+</button>
+<nav class="bnav" aria-label="Vistas">
+  <button type="button" data-view="agenda" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Agenda</button>
+  <button type="button" data-view="semana" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M9 9v12M15 9v12"/></svg>Semana</button>
+  <button type="button" data-view="historial" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 9l2 2 4-4M8 16h8"/></svg>Pendientes</button>
+  <button type="button" data-view="mes" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/><circle cx="8" cy="14" r=".6"/><circle cx="12" cy="14" r=".6"/><circle cx="16" cy="14" r=".6"/><circle cx="8" cy="18" r=".6"/><circle cx="12" cy="18" r=".6"/></svg>Mes</button>
+  <button type="button" data-view="liq" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13l2 2 3-4M10 18h6"/></svg>Liquidaciones</button>
+</nav>
+
+
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+window.startApp = () => {
+  const $ = (id) => document.getElementById(id);
+  const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const DOWS = ["LUN","MAR","MIÉ","JUE","VIE","SÁB","DOM"];
+  const DIAS = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  const H0 = 6, H1 = 21;
+  const PALETTE = ["#f87171", "#fb923c", "#facc15", "#a3e635", "#34d399", "#2dd4bf", "#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#d6a77a", "#94a3b8"];
+  const NONE = "#64748b";
+
+  const S = {
+    contracts: [], hideC: {},
+    db: null, user: null, uid: null, items: [], hist: [], names: {}, people: { p1: "Coordinador", p2: "Ingeniera" },
+    view: "semana", cursor: new Date(), miniMonth: null, show: { p1: true, p2: true, ambos: true },
+    loaded: false, readOnly: false, isOwner: false, editing: null, inst: null, tipo: "tarea", draftAv: [], histFilter: "todo"
+  };
+
+  // ---------- fechas ----------
+  const pad = (n) => String(n).padStart(2, "0");
+  const iso = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const parse = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const monday = (d) => addDays(new Date(d.getFullYear(), d.getMonth(), d.getDate()), -((d.getDay() + 6) % 7));
+  const todayISO = () => iso(new Date());
+  const toMin = (t) => { if (!t) return null; const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const hm = (m) => pad(Math.floor(m / 60) % 24) + ":" + pad(m % 60);
+  const fmtD = (s) => { const d = parse(s); return d.getDate() + " " + MESES[d.getMonth()].slice(0, 3); };
+  const fmtDL = (s) => { const d = parse(s); return DIAS[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MESES[d.getMonth()].slice(0, 3); };
+  const weekNum = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - y0) / 864e5 + 1) / 7); };
+  const daysBetween = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
+
+  // Festivos de Colombia (Ley 51 de 1983)
+  const festCache = {};
+  function easter(y) { const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mo = Math.floor((h + l - 7 * m + 114) / 31), da = ((h + l - 7 * m + 114) % 31) + 1; return new Date(y, mo - 1, da); }
+  const toMonday = (d) => { const w = d.getDay(); return w === 1 ? d : addDays(d, (8 - w) % 7); };
+  function festivos(y) {
+    if (festCache[y]) return festCache[y];
+    const o = {}, put = (d, n) => { o[iso(d)] = n; };
+    put(new Date(y, 0, 1), "Año Nuevo"); put(new Date(y, 4, 1), "Día del Trabajo"); put(new Date(y, 6, 20), "Independencia");
+    put(new Date(y, 7, 7), "Batalla de Boyacá"); put(new Date(y, 11, 8), "Inmaculada Concepción"); put(new Date(y, 11, 25), "Navidad");
+    put(toMonday(new Date(y, 0, 6)), "Reyes Magos"); put(toMonday(new Date(y, 2, 19)), "San José"); put(toMonday(new Date(y, 5, 29)), "San Pedro y San Pablo");
+    put(toMonday(new Date(y, 7, 15)), "Asunción"); put(toMonday(new Date(y, 9, 12)), "Día de la Raza"); put(toMonday(new Date(y, 10, 1)), "Todos los Santos");
+    put(toMonday(new Date(y, 10, 11)), "Indep. de Cartagena");
+    const e = easter(y); put(addDays(e, -3), "Jueves Santo"); put(addDays(e, -2), "Viernes Santo"); put(addDays(e, 43), "Ascensión"); put(addDays(e, 64), "Corpus Christi"); put(addDays(e, 71), "Sagrado Corazón");
+    return (festCache[y] = o);
+  }
+  const festivo = (s) => festivos(Number(s.slice(0, 4)))[s];
+
+  // ---------- repeticiones ----------
+  function repLabel(freq, fecha) {
+    if (!freq) return "";
+    const d = fecha ? parse(fecha) : new Date();
+    return ({ diaria: "Todos los días", habiles: "Días hábiles (lun–vie, sin festivos)", semanal: "Cada semana, los " + DIAS[d.getDay()], quincenal: "Cada 2 semanas, los " + DIAS[d.getDay()], mensual: "Cada mes, el día " + d.getDate() })[freq] || "";
+  }
+  function occurs(x, s) {
+    const r = x.rep; if (!r || !r.freq || !x.fecha) return s === x.fecha;
+    if (s < x.fecha || (r.hasta && s > r.hasta) || (x.excl || []).includes(s)) return false;
+    const d = parse(s), d0 = parse(x.fecha);
+    switch (r.freq) {
+      case "diaria": return true;
+      case "habiles": return d.getDay() >= 1 && d.getDay() <= 5 && !festivo(s);
+      case "semanal": return d.getDay() === d0.getDay();
+      case "quincenal": return d.getDay() === d0.getDay() && (daysBetween(x.fecha, s) / 7) % 2 === 0;
+      case "mensual": { const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); return d.getDate() === Math.min(d0.getDate(), last); }
+    }
+    return false;
+  }
+  function occurrences(x, from, to) {
+    const out = []; if (!x.fecha) return out;
+    let s = from < x.fecha ? x.fecha : from; const end = x.rep && x.rep.hasta && x.rep.hasta < to ? x.rep.hasta : to;
+    for (let d = parse(s), n = 0; iso(d) <= end && n < 800; d = addDays(d, 1), n++) { const k = iso(d); if (occurs(x, k)) out.push(k); }
+    return out;
+  }
+  const isSeries = (x) => !!(x && x.rep && x.rep.freq);
+  const doneOn = (x, s) => !!(x.hechas && x.hechas[s]);
+  function inst(x, s) {
+    const o = Object.assign({}, x, { fecha: s, _series: x, _date: s });
+    if (x.tipo === "tarea") { o.estado = doneOn(x, s) ? "hecha" : (x.estado === "curso" ? "curso" : "pendiente"); o.completada = (x.hechas || {})[s] || ""; }
+    return o;
+  }
+  function instancesIn(from, to) {
+    return visible().flatMap((x) => isSeries(x) ? occurrences(x, from, to).map((s) => inst(x, s)) : (x.fecha && x.fecha >= from && x.fecha <= to ? [x] : []));
+  }
+  function pendingTasks() {
+    const t0 = todayISO(), from = iso(addDays(new Date(), -14)), horizon = iso(addDays(new Date(), 120)), out = [];
+    visible().filter((x) => x.tipo === "tarea").forEach((x) => {
+      if (!isSeries(x)) { if (x.estado !== "hecha") out.push(x); return; }
+      const occ = occurrences(x, from, horizon);
+      occ.filter((s) => s < t0 && !doneOn(x, s)).forEach((s) => out.push(inst(x, s)));
+      const nx = occ.find((s) => s >= t0 && !doneOn(x, s)); if (nx) out.push(inst(x, nx));
+    });
+    return out;
+  }
+  function doneTasks() {
+    const out = [];
+    visible().filter((x) => x.tipo === "tarea").forEach((x) => {
+      if (!isSeries(x)) { if (x.estado === "hecha") out.push(x); return; }
+      Object.keys(x.hechas || {}).forEach((s) => out.push(inst(x, s)));
+    });
+    return out.sort((a, b) => (b.completada || "").localeCompare(a.completada || ""));
+  }
+
+  // ---------- utilidades ----------
+  function el(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else if (k === "style") n.style.cssText = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const c of kids.flat()) if (c != null) n.append(c);
+    return n;
+  }
+  let toastT;
+  function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2800); }
+  const pname = (k) => k === "ambos" ? "Ambos" : (S.people[k] || (k === "p2" ? "Ingeniera" : "Coordinador"));
+  const isLate = (x) => x.tipo === "tarea" && x.estado !== "hecha" && x.fecha && x.fecha < todayISO();
+  const cOf = (x) => S.contracts.find((c) => c.id === x.contrato) || null;
+  const cColor = (x) => { const c = cOf(x); return c ? c.color : NONE; };
+  const cLabel = (c) => c ? c.codigo + " · " + c.nombre : "Sin contrato";
+  const shown = (x) => S.show[x.resp || "p1"] !== false && !S.hideC[x.contrato || "_none"];
+  const visible = () => S.items.filter(shown);
+  const sortKey = (x) => (x.fecha || "9999") + (x.inicio || "99:99");
+  const colorVars = (c) => "--c:" + c + ";--bgc:color-mix(in srgb, " + c + " 24%, #151b22)";
+  const varsFor = (x) => colorVars(cColor(x));
+  const initials = (n) => { const w = String(n || "").trim().split(/\s+/).filter(Boolean); return ((w[0] || "?")[0] + (w[1] ? w[1][0] : (w[0] || "")[1] || "")).toUpperCase(); };
+  const badgeText = (k) => k === "ambos" ? initials(pname("p1"))[0] + initials(pname("p2"))[0] : initials(pname(k));
+  const ROLE = { p1: "Coordinador de liquidaciones", p2: "Ingeniera de liquidaciones", ambos: "Coordinador e ingeniera" };
+  const pb = (k) => el("span", { class: "pb" + (k === "ambos" ? " both" : ""), title: pname(k) + (pname(k) !== ROLE[k] ? " · " + ROLE[k] : ""), text: badgeText(k) });
+  const repMark = (x) => isSeries(x) ? el("span", { class: "rep", title: repLabel(x.rep.freq, (x._series || x).fecha), text: "↻" }) : null;
+  const canDrag = (x) => !S.readOnly && !!S.db && !x._series;
+
+  // ---------- render ----------
+  function render() { renderSideCounts(); renderMini(); renderTop(); renderView(); }
+
+  function renderSideCounts() {
+    $("n-p1").textContent = pname("p1"); $("n-p2").textContent = pname("p2");
+    $("b-p1").textContent = badgeText("p1"); $("b-p2").textContent = badgeText("p2"); $("b-both").textContent = badgeText("ambos");
+    const t0 = todayISO(), t7 = iso(addDays(new Date(), 7));
+    const all = S.items.filter((x) => x.tipo === "tarea");
+    const pend = (() => { const save = S.hideC, saveS = S.show; S.hideC = {}; S.show = { p1: true, p2: true, ambos: true }; const p = pendingTasks(); const m = instancesIn(t0, t7).filter((x) => x.tipo === "reunion"); S.hideC = save; S.show = saveS; return p.concat(m); })();
+    const cnt = (f) => S.loaded ? String(pend.filter(f).length || "") : "";
+    $("c-p1").textContent = cnt((x) => x.resp === "p1"); $("c-p2").textContent = cnt((x) => x.resp === "p2"); $("c-both").textContent = cnt((x) => x.resp === "ambos");
+    const list = $("clist"); list.replaceChildren();
+    const rows = S.contracts.filter((c) => !c.archivado || S.items.some((x) => x.contrato === c.id)).map((c) => [c.id, c.color, c.nombre, c.codigo]);
+    if (S.items.some((x) => !x.contrato)) rows.push(["_none", NONE, "Sin contrato", ""]);
+    if (!rows.length) list.append(el("span", { style: "color:var(--muted);font-size:12px", text: S.loaded ? "Aún no hay contratos. Agrégalos en Gestionar contratos." : "Cargando…" }));
+    rows.forEach(([id, color, nombre, codigo]) => {
+      const cb = el("input", { type: "checkbox", checked: !S.hideC[id], onchange: (e) => { if (e.target.checked) delete S.hideC[id]; else S.hideC[id] = true; renderView(); } });
+      list.append(el("label", { class: "filt", title: codigo ? codigo + " · " + nombre : nombre }, cb, el("span", { class: "sw", style: "background:" + color }), el("span", { class: "nm", text: nombre }), codigo ? el("span", { class: "cd", text: codigo.replace(/^IDU-/, "") }) : null, el("span", { class: "n", text: cnt((x) => (x.contrato || "_none") === id) })));
+    });
+    void all;
+  }
+
+  function renderMini() {
+    const m = S.miniMonth || new Date(S.cursor.getFullYear(), S.cursor.getMonth(), 1);
+    S.miniMonth = m;
+    $("mini-title").textContent = MESES[m.getMonth()] + " " + m.getFullYear();
+    const g = $("mini"); g.replaceChildren(...["L","M","X","J","V","S","D"].map((d) => el("span", { class: "dw", text: d })));
+    const start = monday(m), wk0 = iso(monday(S.cursor)), wk1 = iso(addDays(monday(S.cursor), 6)), t0 = todayISO();
+    for (let i = 0; i < 42; i++) {
+      const d = addDays(start, i), s = iso(d);
+      if (i >= 35 && d.getMonth() !== m.getMonth()) break;
+      const cls = [d.getMonth() !== m.getMonth() && "out", S.view === "semana" && s >= wk0 && s <= wk1 && "wk", s === t0 && "today", festivo(s) && "fest"].filter(Boolean).join(" ");
+      g.append(el("button", { type: "button", class: cls, text: String(d.getDate()), "aria-label": d.getDate() + " de " + MESES[d.getMonth()], onclick: () => { S.cursor = d; if (isMobile()) { document.body.classList.remove("drawer"); setView("agenda"); } else if (S.view === "historial") setView("semana"); else render(); } }));
+    }
+  }
+
+  function renderTop() {
+    const c = S.cursor;
+    if (S.view === "semana") {
+      const a = monday(c), b = addDays(a, 6);
+      $("eyebrow").textContent = "Semana " + weekNum(a);
+      $("title").textContent = a.getMonth() === b.getMonth() ? a.getDate() + " – " + b.getDate() + " de " + MESES[b.getMonth()] : a.getDate() + " de " + MESES[a.getMonth()] + " – " + b.getDate() + " de " + MESES[b.getMonth()];
+    } else if (S.view === "agenda") { const d = S.cursor, s0 = iso(d), t0 = todayISO(); $("eyebrow").textContent = s0 === t0 ? "Hoy" : s0 === iso(addDays(new Date(), 1)) ? "Mañana" : "Agenda"; $("title").textContent = DIAS[d.getDay()][0].toUpperCase() + DIAS[d.getDay()].slice(1) + " " + d.getDate() + " de " + MESES[d.getMonth()]; }
+    else if (S.view === "mes") { $("eyebrow").textContent = String(c.getFullYear()); $("title").textContent = MESES[c.getMonth()][0].toUpperCase() + MESES[c.getMonth()].slice(1); }
+    else if (S.view === "liq") { const c = L.sel && S.contracts.find((x) => x.id === L.sel); $("eyebrow").textContent = c ? "Liquidaciones · " + c.codigo : "Control de contratos"; $("title").textContent = c ? c.nombre : "Liquidaciones"; }
+    else { $("eyebrow").textContent = "Seguimiento"; $("title").textContent = S.isOwner ? "Pendientes e historial" : "Pendientes"; }
+    ["prev","today","next"].forEach((id) => ($(id).hidden = S.view === "historial" || S.view === "liq"));
+    document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === S.view)));
+  }
+
+  function renderView() {
+    $("v-agenda").hidden = S.view !== "agenda"; $("v-semana").hidden = S.view !== "semana"; $("v-mes").hidden = S.view !== "mes"; $("v-historial").hidden = S.view !== "historial"; $("v-liq").hidden = S.view !== "liq";
+    if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") renderLiq(); else renderHist();
+  }
+
+  // ---------- arrastrar tareas (y reuniones en el mes) ----------
+  function dragSrc(node, x) {
+    if (!canDrag(x)) return node;
+    node.setAttribute("draggable", "true");
+    node.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", x.id); e.dataTransfer.effectAllowed = "move"; });
+    return node;
+  }
+  function dropTarget(node, s) {
+    node.addEventListener("dragover", (e) => { if (S.readOnly) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; node.classList.add("drop"); });
+    node.addEventListener("dragleave", () => node.classList.remove("drop"));
+    node.addEventListener("drop", (e) => { e.preventDefault(); node.classList.remove("drop"); const id = e.dataTransfer.getData("text/plain"); const x = S.items.find((y) => y.id === id); if (x) moveTo(x, s); });
+    return node;
+  }
+  async function moveTo(x, s, ini, fin) {
+    if (x.fecha === s && (ini == null || (ini === x.inicio && fin === x.fin))) return;
+    const patch = { fecha: s, actualizada: new Date().toISOString() }; if (ini != null) { patch.inicio = ini; patch.fin = fin; }
+    try { await S.db.doc("agenda/" + x.id).update(patch); log("mover", x, "→ " + fmtDL(s) + (ini ? " " + ini + (fin ? "–" + fin : "") : "")); toast((x.tipo === "reunion" ? "Reunión movida a " : "Tarea movida a ") + fmtDL(s) + (ini ? ", " + ini : "")); }
+    catch (e) { toast(writeErr(e)); render(); }
+  }
+
+  function taskChip(x) {
+    return dragSrc(el("button", { type: "button", class: "chip" + (x.estado === "hecha" ? " done" : "") + (isLate(x) ? " late" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo + (isSeries(x) ? "\n" + repLabel(x.rep.freq, (x._series || x).fecha) : ""), onclick: (e) => { e.stopPropagation(); openItem(x); } },
+      el("span", { class: "bx" }), el("span", { class: "tx", style: "flex:1", text: (x.inicio ? x.inicio + " " : "") + x.titulo }), repMark(x), pb(x.resp)), x);
+  }
+
+  function layoutDay(meets) {
+    const ms = meets.map((m) => ({ m, s: toMin(m.inicio), e: Math.max(toMin(m.fin) || 0, (toMin(m.inicio) || 0) + 30) })).sort((a, b) => a.s - b.s || b.e - a.e);
+    let cluster = [], end = -1; const out = [];
+    const flush = () => { const lanes = []; cluster.forEach((it) => { let l = lanes.findIndex((e) => e <= it.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); cluster.forEach((it) => { it.n = lanes.length; out.push(it); }); cluster = []; };
+    ms.forEach((it) => { if (it.s >= end && cluster.length) flush(); cluster.push(it); end = Math.max(end, it.e); });
+    if (cluster.length) flush();
+    return out;
+  }
+
+  // Arrastrar reuniones en la semana (mover y cambiar duración)
+  let cols = [], dragging = false;
+  function startDrag(e, m, node, mode) {
+    if (e.button !== 0 || !canDrag(m)) return;
+    e.stopPropagation();
+    const H = gridH(), sx = e.clientX, sy = e.clientY, s0 = toMin(m.inicio), e0 = Math.max(toMin(m.fin) || s0 + 60, s0 + 15), dur = e0 - s0;
+    let moved = false, ns = s0, ne = e0, nday = m.fecha;
+    const label = node.querySelector("i");
+    try { node.setPointerCapture(e.pointerId); } catch {}
+    const move = (ev) => {
+      const dx = ev.clientX - sx, dy = ev.clientY - sy;
+      if (!moved && Math.hypot(dx, dy) < 5) return;
+      if (!moved) { moved = true; dragging = true; node.classList.add("dragging"); }
+      const dm = Math.round(dy / H * 60 / 15) * 15;
+      if (mode === "move") {
+        ns = Math.max(H0 * 60, Math.min(H1 * 60 - dur, s0 + dm)); ne = ns + dur;
+        const c = cols.find((c) => { const r = c.el.getBoundingClientRect(); return ev.clientX >= r.left && ev.clientX <= r.right; });
+        if (c) { nday = c.s; if (node.parentNode !== c.el) c.el.append(node); }
+        node.style.left = "2px"; node.style.width = "calc(100% - 4px)";
+      } else ne = Math.max(s0 + 15, Math.min(H1 * 60, e0 + dm));
+      node.style.top = ((ns - H0 * 60) / 60 * H + 1) + "px"; node.style.height = Math.max(16, (ne - ns) / 60 * H - 3) + "px";
+      if (label) label.textContent = hm(ns) + " – " + hm(ne) + (nday !== m.fecha ? " · " + fmtDL(nday) : "");
+    };
+    const up = () => {
+      node.removeEventListener("pointermove", move); node.removeEventListener("pointerup", up); node.removeEventListener("pointercancel", up);
+      if (!moved) { if (mode === "move") openItem(m); return; }
+      setTimeout(() => { dragging = false; }, 0);
+      node.classList.remove("dragging");
+      if (nday === m.fecha && ns === s0 && ne === e0) { renderWeek(); return; }
+      moveTo(m, nday, hm(ns), hm(ne));
+    };
+    node.addEventListener("pointermove", move); node.addEventListener("pointerup", up); node.addEventListener("pointercancel", up);
+  }
+  const gridH = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--H")) || 48;
+
+  let scrolledOnce = false;
+  function renderWeek() {
+    if (dragging) return;
+    const box = $("v-semana"); const prevScroll = box.querySelector(".scroller")?.scrollTop;
+    const a = monday(S.cursor), t0 = todayISO(), H = gridH();
+    const days = [...Array(7)].map((_, i) => addDays(a, i));
+    const vis = instancesIn(iso(days[0]), iso(days[6])), lqd = liqDue(iso(days[0]), iso(days[6]));
+    const head = el("div", { class: "wk-row" }, el("span"), days.map((d, i) => { const s = iso(d), f = festivo(s);
+      return dropTarget(el("button", { type: "button", class: "dh" + (s === t0 ? " today" : "") + (f ? " festd" : ""), title: "Agregar tarea el " + fmtD(s), onclick: () => openNew({ tipo: "tarea", fecha: s }) },
+        el("span", { class: "dw", text: DOWS[i] }), el("span", { class: "dn", text: String(d.getDate()) }), el("span", { class: "df", text: f || "" })), s); }));
+    const allday = el("div", { class: "wk-row" }, el("span", { class: "allday-l", text: "Tareas" }), days.map((d) => { const s = iso(d);
+      return dropTarget(el("div", { class: "allday" }, vis.filter((x) => x.tipo === "tarea" && x.fecha === s).sort((p, q) => sortKey(p).localeCompare(sortKey(q))).map(taskChip), lqd.filter((x) => x.fecha === s).map(liqChip)), s); }));
+    const hcol = el("div", { class: "hcol", style: "height:" + ((H1 - H0) * H) + "px" });
+    for (let h = H0 + 1; h < H1; h++) hcol.append(el("span", { style: "top:" + ((h - H0) * H) + "px", text: h + ":00" }));
+    cols = [];
+    const colEls = days.map((d, i) => {
+      const s = iso(d);
+      const col = el("div", { class: "dcol" + (i >= 5 ? " wkend" : "") + (s === t0 ? " today" : ""), style: "height:" + ((H1 - H0) * H) + "px" });
+      cols.push({ s, el: col });
+      for (let h = H0 + 1; h < H1; h++) col.append(el("div", { class: "hl", style: "top:" + ((h - H0) * H) + "px" }));
+      col.addEventListener("click", (e) => { if (dragging || (e.target !== col && !e.target.classList.contains("hl"))) return; const r = col.getBoundingClientRect(); const mins = Math.max(H0 * 60, Math.min((H1 - 1) * 60, Math.floor(((e.clientY - r.top) / H * 60 + H0 * 60) / 30) * 30)); openNew({ tipo: "reunion", fecha: s, inicio: hm(mins) }); });
+      layoutDay(vis.filter((x) => x.tipo === "reunion" && x.fecha === s && x.inicio)).forEach((it) => {
+        const m = it.m, top = (it.s - H0 * 60) / 60 * H, ht = Math.max(20, (it.e - it.s) / 60 * H - 3), w = 100 / it.n, c = cOf(m);
+        const node = el("button", { type: "button", class: "mt" + (canDrag(m) ? " drag" : ""), style: varsFor(m) + ";top:" + (top + 1) + "px;height:" + ht + "px;left:calc(" + (it.lane * w) + "% + 2px);width:calc(" + w + "% - 4px)",
+            title: m.titulo + " · " + m.inicio + (m.fin ? "–" + m.fin : "") + "\n" + pname(m.resp) + " · " + cLabel(c) + (isSeries(m) ? "\n" + repLabel(m.rep.freq, m._series.fecha) : (canDrag(m) ? "\nArrastra para mover; estira el borde inferior para cambiar la duración" : "")),
+            onclick: (e) => { e.stopPropagation(); if (e.detail === 0) openItem(m); } },
+          el("span", { style: "display:flex;gap:6px;align-items:flex-start;justify-content:space-between" }, el("b", { text: m.titulo }), el("span", { style: "display:flex;gap:4px;align-items:center" }, repMark(m), pb(m.resp))),
+          el("i", { text: m.inicio + (m.fin ? " – " + m.fin : "") + (c ? " · " + c.nombre : "") }), m.lugar ? el("i", { text: m.lugar }) : null);
+        if (canDrag(m)) {
+          const rs = el("span", { class: "rs", "aria-hidden": "true" });
+          rs.addEventListener("pointerdown", (e) => startDrag(e, m, node, "resize"));
+          node.append(rs);
+          node.addEventListener("pointerdown", (e) => { if (e.target !== rs) startDrag(e, m, node, "move"); });
+        } else node.addEventListener("pointerup", (e) => { if (e.button === 0) openItem(m); });
+        col.append(node);
+      });
+      if (s === t0) { const n = new Date(), mins = n.getHours() * 60 + n.getMinutes(); if (mins >= H0 * 60 && mins <= H1 * 60) col.append(el("div", { class: "now", style: "top:" + ((mins - H0 * 60) / 60 * H) + "px" })); }
+      return col;
+    });
+    const scroller = el("div", { class: "scroller" }, el("div", { class: "tgrid" }, hcol, colEls));
+    box.replaceChildren(el("div", { class: "week" }, head, allday, scroller));
+    if (prevScroll != null) scroller.scrollTop = prevScroll; else if (!scrolledOnce) { scroller.scrollTop = (7 - H0) * H - 10; scrolledOnce = true; }
+  }
+
+  function renderMonth() {
+    const box = $("v-mes"); const m = new Date(S.cursor.getFullYear(), S.cursor.getMonth(), 1), start = monday(m), t0 = todayISO();
+    const vis = instancesIn(iso(start), iso(addDays(start, 41))), lqd = liqDue(iso(start), iso(addDays(start, 41)));
+    const grid = el("div", { class: "m-grid" });
+    for (let i = 0; i < 42; i++) {
+      const d = addDays(start, i), s = iso(d); if (i >= 35 && d.getMonth() !== m.getMonth()) break;
+      const inM = d.getMonth() === m.getMonth(), f = festivo(s), lq = lqd.filter((x) => x.fecha === s);
+      const items = vis.filter((x) => x.fecha === s).sort((p, q) => (p.tipo === "reunion" ? 0 : 1) - (q.tipo === "reunion" ? 0 : 1) || sortKey(p).localeCompare(sortKey(q)));
+      const cell = dropTarget(el("div", { class: "mc" + (inM ? "" : " out") + (s === t0 ? " today" : "") + (f ? " festd" : ""), onclick: () => { if (isMobile()) { S.cursor = d; setView("agenda"); } else openNew({ tipo: "tarea", fecha: s }); } },
+        el("div", { class: "num" }, el("b", { text: String(d.getDate()) }), f ? el("em", { text: f }) : null), el("span", { class: "mdots" }, items.concat(lq).slice(0, 6).map((x) => el("i", { style: "background:" + (isLate(x) ? "var(--late)" : cColor(x)) })))), s);
+      items.slice(0, 4).forEach((x) => cell.append(dragSrc(el("button", { type: "button", class: "mi" + (x.tipo === "reunion" ? " meet" : "") + (x.estado === "hecha" ? " done" : "") + (isLate(x) ? " late" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo, onclick: (e) => { e.stopPropagation(); openItem(x); } },
+        x.tipo === "reunion" ? el("span", { class: "tm", text: x.inicio || "" }) : el("span", { class: "bx" }), el("span", { class: "tx", text: x.titulo }), repMark(x)), x)));
+      lq.forEach((x) => cell.append(el("button", { type: "button", class: "mi" + (s < t0 ? " late" : ""), style: varsFor(x), title: x.titulo, onclick: (e) => { e.stopPropagation(); openLiq(x.contrato, s); } }, el("span", { class: "tm", text: "§" }), el("span", { class: "tx", text: x.titulo }))));
+      if (items.length > 4) cell.append(el("span", { class: "more", text: "+" + (items.length - 4) + " más" }));
+      grid.append(cell);
+    }
+    box.replaceChildren(el("div", { class: "m-dows" }, DOWS.map((d) => el("span", { text: d }))), grid);
+  }
+
+  function taskRow(x) {
+    const late = isLate(x), c = cOf(x);
+    return el("div", { class: "tr" + (x.estado === "hecha" ? " done" : "") },
+      el("input", { type: "checkbox", checked: x.estado === "hecha", disabled: S.readOnly, "aria-label": "Marcar como hecha: " + x.titulo, onchange: (e) => toggleDone(x, e.target.checked) }),
+      el("div", { style: "min-width:0" }, el("button", { type: "button", class: "t", text: x.titulo, onclick: () => openItem(x) }),
+        el("div", { class: "meta" }, el("span", { class: "who" }, pb(x.resp), pname(x.resp)), el("span", { class: "who", style: varsFor(x) }, el("span", { class: "dot" }), c ? c.nombre : "Sin contrato"),
+          isSeries(x) ? el("span", { text: "↻ " + repLabel(x.rep.freq, x._series.fecha) }) : null,
+          x.prio === "alta" ? el("span", { style: "color:var(--late)", text: "Prioridad alta" }) : null, x.estado === "curso" ? el("span", { style: "color:var(--accent)", text: "En curso" }) : null,
+          (x.avances || []).length ? el("span", { text: x.avances.length + (x.avances.length === 1 ? " avance" : " avances") }) : null)),
+      el("span", { class: "dt" + (late ? " late" : ""), text: x.fecha ? fmtD(x.fecha) : "sin fecha" }));
+  }
+
+  const ICON = { crear: ["+", "var(--p2)"], hecha: ["✓", "var(--done)"], reabrir: ["↺", "var(--muted)"], avance: ["✎", "var(--p1)"], editar: ["✎", "var(--muted)"], eliminar: ["✕", "var(--late)"], reunion: ["◷", "var(--both)"], mover: ["↔", "var(--accent)"], quitar: ["✕", "var(--muted)"], liq: ["§", "#34d399"], contrato: ["⚙", "var(--warn)"] };
+  function renderHist() {
+    const box = $("v-historial"); const t0 = todayISO(), t7 = iso(addDays(new Date(), 7));
+    const open = pendingTasks().sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+    const left = el("div", { class: "panel" }, el("div", { class: "panel-h" }, el("h2", { text: "Pendientes" }), el("span", { class: "lbl", text: open.length + " abiertas" })));
+    if (!S.loaded) left.append(el("div", { class: "empty", text: "Cargando…" }));
+    else if (!open.length) left.append(el("div", { class: "empty" }, el("b", { text: "No hay pendientes abiertos" }), el("span", { text: "Las tareas que programen aparecen aquí, ordenadas por fecha límite." })));
+    [["Vencidas", open.filter(isLate), "late"], ["Hoy", open.filter((x) => x.fecha === t0)], ["Próximos 7 días", open.filter((x) => x.fecha > t0 && x.fecha <= t7)], ["Más adelante", open.filter((x) => x.fecha > t7)], ["Sin fecha", open.filter((x) => !x.fecha)]]
+      .forEach(([n, xs, c]) => { if (xs.length) left.append(el("span", { class: "grp-l" + (c ? " " + c : ""), text: n + " · " + xs.length }), ...xs.map(taskRow)); });
+    const done = doneTasks();
+    if (done.length) left.append(el("details", null, el("summary", { class: "grp-l", style: "cursor:pointer", text: "Hechas · " + done.length }), el("div", { style: "display:flex;flex-direction:column;gap:8px;margin-top:8px" }, done.slice(0, 50).map(taskRow))));
+
+    const F = { todo: () => true, hechas: (h) => h.accion === "hecha", reuniones: (h) => h.tipo === "reunion", avances: (h) => h.accion === "avance", liq: (h) => h.tipo === "liq" || h.tipo === "contrato" };
+    const right = el("div", { class: "panel" }, el("div", { class: "panel-h" }, el("h2", { text: "Historial" }),
+      el("div", { class: "chips" }, [["todo", "Todo"], ["hechas", "Hechas"], ["reuniones", "Reuniones"], ["avances", "Avances"], ["liq", "Liquidaciones"]].map(([k, l]) => el("button", { type: "button", "aria-pressed": String(S.histFilter === k), text: l, onclick: () => { S.histFilter = k; renderHist(); } })))));
+    const hs = S.hist.filter(F[S.histFilter]);
+    if (!hs.length) right.append(el("div", { class: "empty" }, el("b", { text: "Sin actividad todavía" }), el("span", { text: "Cada vez que alguien crea, mueve, completa o anota un avance, queda registrado aquí con su nombre y la hora." })));
+    else right.append(el("div", { class: "feed" }, hs.slice(0, 120).map((h) => { const ic = h.tipo === "reunion" && h.accion === "crear" ? ICON.reunion : (ICON[h.accion] || ICON.editar);
+      return el("div", { class: "fe" }, el("span", { class: "ic", style: "--c:" + ic[1], text: ic[0] }),
+        el("div", { class: "body" }, el("span", { class: "when", text: fmtWhen(h.t) }),
+          el("span", { class: "txt" }, el("b", { text: S.names[h.uid] || "Alguien" }), " " + verb(h) + " ", el("b", { text: h.titulo || "" })),
+          h.nota ? el("span", { class: "note", text: h.nota }) : null)); })));
+    box.replaceChildren(S.isOwner ? el("div", { class: "ph" }, left, right) : el("div", { class: "ph", style: "grid-template-columns:minmax(0,1fr)" }, left));
+  }
+  function verb(h) { const r = h.tipo === "reunion"; return ({ crear: r ? "programó la reunión" : "programó la tarea", hecha: "marcó como hecha", reabrir: "reabrió", avance: "agregó un avance a", editar: r ? "editó la reunión" : "editó la tarea", eliminar: r ? "eliminó la reunión" : "eliminó la tarea", mover: r ? "movió la reunión" : "movió la tarea", quitar: "quitó una fecha de", liq: "actualizó en liquidación", contrato: "cambió" })[h.accion] || "modificó"; }
+  function fmtWhen(t) { const d = new Date(t), s = iso(d), y = iso(addDays(new Date(), -1)); const h = pad(d.getHours()) + ":" + pad(d.getMinutes()); return s === todayISO() ? "Hoy " + h : s === y ? "Ayer " + h : fmtD(s) + " " + h; }
+
+  // ---------- diálogo ----------
+  function fillRep(freq) {
+    const f = $("i-fecha").value, sel = $("i-rep");
+    sel.replaceChildren(el("option", { value: "", text: "No se repite" }), ...["diaria", "habiles", "semanal", "quincenal", "mensual"].map((k) => el("option", { value: k, text: repLabel(k, f) })));
+    sel.value = freq || ""; $("w-hasta").hidden = !sel.value;
+  }
+  function setTipo(t) {
+    S.tipo = t; const r = t === "reunion";
+    document.querySelectorAll("#tipo-seg [data-tipo]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tipo === t)));
+    $("l-titulo").textContent = r ? "Asunto de la reunión" : "Qué hay que hacer";
+    $("i-titulo").placeholder = r ? "Ej.: Comité de obra IDU" : "Ej.: Radicar acta FO-IN-08 ETB";
+    $("l-fecha").textContent = r ? "Fecha" : (S.editing && isSeries(S.items.find((y) => y.id === S.editing)) ? "Empieza el" : "Fecha límite"); $("l-ini").textContent = r ? "Empieza" : "Hora (opcional)";
+    $("w-fin").hidden = !r; $("w-lugar").hidden = !r; $("w-task-extra").hidden = r;
+    const sel = $("i-resp"), cur = sel.value;
+    sel.replaceChildren(...["p1", "p2"].concat(r ? ["ambos"] : []).map((k) => el("option", { value: k, text: pname(k) })));
+    sel.value = (!r && cur === "ambos") ? "p1" : (cur || "p1");
+  }
+  function renderAv() {
+    const b = $("av-list"); b.replaceChildren();
+    const xs = (S.draftAv || []).slice().reverse();
+    if (!xs.length) b.append(el("div", { class: "av", style: "color:var(--muted)", text: "Sin avances registrados." }));
+    xs.forEach((a) => b.append(el("div", { class: "av" }, el("div", { class: "when", text: fmtWhen(a.t) }), el("div", { text: a.texto }))));
+  }
+
+  function fill(x, pre) {
+    pre = pre || {};
+    const series = x && x._series ? x._series : x;
+    S.inst = x && x._series ? x : null;
+    S.editing = series ? series.id : null; S.draftAv = series ? (series.avances || []).slice() : [];
+    $("i-resp").replaceChildren(); setTipo(series ? series.tipo : (pre.tipo || "tarea"));
+    $("dlg-title").textContent = series ? (series.tipo === "reunion" ? "Editar reunión" : "Editar tarea") : (S.tipo === "reunion" ? "Nueva reunión" : "Nueva tarea");
+    $("i-titulo").value = series ? series.titulo : (pre.titulo || "");
+    $("i-resp").value = series ? series.resp : (pre.resp || (S.show.p1 && !S.show.p2 ? "p1" : (!S.show.p1 && S.show.p2 ? "p2" : "p1")));
+    const cur = series ? (series.contrato || "") : (pre.contrato != null ? pre.contrato : (() => { const vis = S.contracts.filter((c) => !c.archivado && !S.hideC[c.id]); return vis.length === 1 ? vis[0].id : ""; })());
+    $("i-proy").replaceChildren(el("option", { value: "", text: "Sin contrato" }), ...S.contracts.filter((c) => !c.archivado || c.id === cur).map((c) => el("option", { value: c.id, text: cLabel(c) })));
+    $("i-proy").value = cur;
+    $("i-fecha").value = series ? (series.fecha || "") : (pre.fecha != null ? pre.fecha : (S.tipo === "reunion" ? todayISO() : ""));
+    $("i-ini").value = series ? (series.inicio || "") : (pre.inicio || "");
+    $("i-fin").value = series ? (series.fin || "") : (pre.fin || (pre.inicio ? hm(toMin(pre.inicio) + 60) : ""));
+    $("i-prio").value = series ? (series.prio || "media") : (pre.prio || "media"); $("i-estado").value = series ? (series.estado || "pendiente") : "pendiente";
+    $("i-lugar").value = series ? (series.lugar || "") : ""; $("i-notas").value = series ? (series.notas || "") : ""; $("i-av").value = "";
+    fillRep(series ? (series.rep && series.rep.freq) : pre.freq); $("i-hasta").value = series ? ((series.rep && series.rep.hasta) || "") : (pre.hasta || "");
+    const ser = isSeries(series);
+    if (ser) $("l-fecha").textContent = "Primera fecha";
+    $("rep-note").hidden = !ser; if (ser) $("rep-note").textContent = "Es una serie" + (S.inst ? " (abriste la del " + fmtDL(S.inst._date) + ")" : "") + ": lo que cambies aquí aplica a todas las fechas." + (series.tipo === "tarea" ? " Cada fecha se marca como hecha por separado desde su casilla." : "");
+    $("i-estado").closest(".field").hidden = ser;
+    $("tipo-seg").hidden = !!series;
+    $("btn-del").hidden = !series; $("btn-del").classList.remove("armed"); $("btn-del").textContent = ser ? "Eliminar toda la serie" : "Eliminar";
+    $("btn-del1").hidden = !S.inst; $("btn-del1").classList.remove("armed"); $("btn-del1").textContent = S.inst ? "Quitar solo el " + fmtD(S.inst._date) : "";
+    $("err").hidden = true;
+    ["i-titulo","i-resp","i-proy","i-fecha","i-ini","i-fin","i-prio","i-estado","i-lugar","i-notas","i-av","btn-av","btn-save","btn-del","btn-del1","i-rep","i-hasta"].forEach((id) => ($(id).disabled = S.readOnly));
+    renderAv(); $("dlg").showModal(); if (!series && !pre.titulo) $("i-titulo").focus();
+  }
+  function openNew(pre) { if (S.readOnly || !S.db) { toast(S.readOnly ? "Tienes acceso de solo lectura." : "Sin conexión: no se puede crear."); return; } fill(null, pre); }
+  function openItem(x) { if (dragging) return; fill(x); }
+  function closeDlg() { $("dlg").close(); S.editing = null; S.inst = null; }
+  function showErr(m) { $("err").textContent = m; $("err").hidden = false; }
+  function writeErr(e) {
+    if (e && e.code === "invalid_argument") { S.readOnly = true; setStatus(); return "No tienes permiso para modificar (acceso de solo lectura)."; }
+    if (e && e.code === "quota_exceeded") return "Se llegó al límite de almacenamiento. Elimina elementos antiguos.";
+    return "No se pudo guardar. Revisa la conexión e intenta otra vez.";
+  }
+  let histMarked = false;
+  async function log(accion, x, nota) {
+    if (!S.db || !S.uid) return;
+    try {
+      if (!histMarked) { histMarked = true; await S.db.doc("historial/" + S.uid).set({ uid: S.uid, t: new Date().toISOString() }); }
+      await S.db.collection("historial/" + S.uid + "/log").add({ t: new Date().toISOString(), uid: S.uid || "", accion, tipo: x.tipo, titulo: x.titulo, item: (x._series ? x._series.id : x.id) || "", nota: nota || "" });
+    } catch {}
+  }
+  function buildData(v, prev) {
+    const now = new Date().toISOString();
+    const r = v.tipo === "reunion", estado = r ? "" : (v.estado || "pendiente");
+    return { tipo: v.tipo, titulo: v.titulo, resp: v.resp || "p1", contrato: v.contrato || "", fecha: v.fecha || "", inicio: v.inicio || "", fin: r ? (v.fin || "") : "",
+      lugar: r ? (v.lugar || "") : "", prio: r ? "" : (v.prio || "media"), estado, notas: v.notas || "", avances: v.avances || [],
+      rep: v.freq ? { freq: v.freq, hasta: v.hasta || "" } : null, excl: prev ? (prev.excl || []) : [], hechas: prev ? (prev.hechas || {}) : {},
+      creada: prev ? (prev.creada || now) : now, creador: prev ? (prev.creador || "") : (S.uid || ""), actualizada: now,
+      completada: estado === "hecha" ? ((prev && prev.estado === "hecha" && prev.completada) || now) : "", origen: prev ? (prev.origen || "manual") : (v.origen || "manual") };
+  }
+  function validate(v) {
+    if (!v.titulo) return v.tipo === "reunion" ? "Escribe el asunto de la reunión." : "Escribe qué hay que hacer.";
+    if (v.tipo === "reunion") { if (!v.fecha || !v.inicio) return "La reunión necesita fecha y hora de inicio."; if (v.fin && toMin(v.fin) <= toMin(v.inicio)) return "La hora de fin debe ser después del inicio."; }
+    if (v.freq && !v.fecha) return "Para repetir, indica la fecha de inicio.";
+    if (v.freq && v.hasta && v.hasta < v.fecha) return "La fecha \"hasta\" debe ser posterior al inicio.";
+    return "";
+  }
+  async function save(ev) {
+    ev.preventDefault(); if (S.readOnly) return;
+    const prev = S.editing ? S.items.find((x) => x.id === S.editing) : null;
+    const pend = $("i-av").value.trim(); if (pend) S.draftAv.push({ t: new Date().toISOString(), texto: pend });
+    const v = { tipo: S.tipo, titulo: $("i-titulo").value.trim(), resp: $("i-resp").value, contrato: $("i-proy").value, fecha: $("i-fecha").value, inicio: $("i-ini").value, fin: $("i-fin").value,
+      lugar: $("i-lugar").value.trim(), prio: $("i-prio").value, estado: $("i-rep").value ? "pendiente" : $("i-estado").value, notas: $("i-notas").value.trim(), avances: S.draftAv, freq: $("i-rep").value, hasta: $("i-hasta").value };
+    const bad = validate(v); if (bad) { showErr(bad); return; }
+    const data = buildData(v, prev);
+    $("btn-save").disabled = true;
+    try {
+      let id = prev && prev.id;
+      if (prev) await S.db.doc("agenda/" + prev.id).set(data); else id = (await S.db.collection("agenda").add(data)).id;
+      log(!prev ? "crear" : (data.estado === "hecha" && prev.estado !== "hecha" ? "hecha" : "editar"), Object.assign({ id }, data), pend);
+      closeDlg(); toast(prev ? "Guardado" : (S.tipo === "reunion" ? "Reunión programada" : "Tarea programada"));
+    } catch (e) { showErr(writeErr(e)); } finally { $("btn-save").disabled = S.readOnly; }
+  }
+  async function addAv() {
+    const txt = $("i-av").value.trim(); if (!txt || S.readOnly) return;
+    const it = { t: new Date().toISOString(), texto: txt };
+    if (S.editing) { const next = S.draftAv.concat(it); const x = S.items.find((y) => y.id === S.editing);
+      try { await S.db.doc("agenda/" + S.editing).update({ avances: next, actualizada: it.t }); S.draftAv = next; $("i-av").value = ""; renderAv(); toast("Avance registrado"); if (x) log("avance", x, txt); }
+      catch (e) { showErr(writeErr(e)); } }
+    else { S.draftAv.push(it); $("i-av").value = ""; renderAv(); }
+  }
+  async function del() {
+    const b = $("btn-del"); if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "Confirmar"; return; }
+    const x = S.items.find((y) => y.id === S.editing);
+    try { await S.db.doc("agenda/" + S.editing).delete(); if (x) log("eliminar", x); closeDlg(); toast("Eliminado"); } catch (e) { showErr(writeErr(e)); }
+  }
+  async function delOne() {
+    const b = $("btn-del1"); if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "Confirmar"; return; }
+    const x = S.items.find((y) => y.id === S.editing), d = S.inst && S.inst._date; if (!x || !d) return;
+    try { await S.db.doc("agenda/" + x.id).update({ excl: (x.excl || []).concat(d), actualizada: new Date().toISOString() }); log("quitar", x, fmtDL(d)); closeDlg(); toast("Se quitó la fecha " + fmtD(d)); } catch (e) { showErr(writeErr(e)); }
+  }
+  async function toggleDone(x, on) {
+    const now = new Date().toISOString();
+    try {
+      if (x._series) { const s = x._series, h = Object.assign({}, s.hechas || {}); if (on) h[x._date] = now; else delete h[x._date]; await S.db.doc("agenda/" + s.id).update({ hechas: h, actualizada: now }); log(on ? "hecha" : "reabrir", s, fmtDL(x._date)); }
+      else { await S.db.doc("agenda/" + x.id).update({ estado: on ? "hecha" : "pendiente", completada: on ? now : "", actualizada: now }); log(on ? "hecha" : "reabrir", x); }
+      toast(on ? "Marcada como hecha" : "Reabierta");
+    } catch (e) { toast(writeErr(e)); render(); }
+  }
+
+  // ---------- creación rápida en una línea ----------
+  const fold = (s) => [...s].map((ch) => ch.normalize("NFD")[0].toLowerCase()).join("");
+  const WD = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6 };
+  const MO = { ene: 0, enero: 0, feb: 1, febrero: 1, mar: 2, marzo: 2, abr: 3, abril: 3, may: 4, mayo: 4, jun: 5, junio: 5, jul: 6, julio: 6, ago: 7, agosto: 7, sep: 8, sept: 8, septiembre: 8, oct: 9, octubre: 9, nov: 10, noviembre: 10, dic: 11, diciembre: 11 };
+  function nextWd(wd, strict) { const t = new Date(); let n = (wd - t.getDay() + 7) % 7; if (strict && n === 0) n = 7; return iso(addDays(t, n)); }
+  function to24(h, mi, ap) { h = +h; mi = +(mi || 0); if (ap) { ap = ap.replace(/\./g, ""); if (ap === "pm" && h < 12) h += 12; if (ap === "am" && h === 12) h = 0; } else if (h >= 1 && h <= 6) h += 12; return h > 23 || mi > 59 ? null : pad(h) + ":" + pad(mi); }
+  function parseQuick(raw) {
+    let orig = " " + raw + " ", norm = fold(orig);
+    const take = (re) => { const m = re.exec(norm); if (!m) return null; const a = m.index, b = a + m[0].length; orig = orig.slice(0, a) + " ".repeat(b - a) + orig.slice(b); norm = norm.slice(0, a) + " ".repeat(b - a) + norm.slice(b); return m; };
+    const r = { tipo: "", fecha: "", inicio: "", fin: "", freq: "", contrato: null, resp: "", prio: "", warn: [] };
+    let m;
+    if ((m = take(/^\s*(tarea|reunion|pendiente)\s*:\s*/))) r.tipo = m[1] === "reunion" ? "reunion" : "tarea";
+    // repetición
+    if ((m = take(/\s(?:cada|todos los|todas las)\s+(dia|dias|semana|2 semanas|dos semanas|quincena|mes|lunes|martes|miercoles|jueves|viernes|sabado|domingo|(\d{1,2}))(?:\s+de\s+cada\s+mes)?(?=\s)/))) {
+      const w = m[1];
+      if (w === "dia" || w === "dias") r.freq = "diaria";
+      else if (w === "semana") r.freq = "semanal";
+      else if (/2 semanas|dos semanas|quincena/.test(w)) r.freq = "quincenal";
+      else if (w === "mes") r.freq = "mensual";
+      else if (w in WD) { r.freq = "semanal"; r.fecha = nextWd(WD[w]); }
+      else if (m[2]) { r.freq = "mensual"; const day = +m[2], t = new Date(); let d = new Date(t.getFullYear(), t.getMonth(), day); if (iso(d) < todayISO()) d = new Date(t.getFullYear(), t.getMonth() + 1, day); r.fecha = iso(d); }
+    } else if ((m = take(/\s(diario|diaria|semanal|quincenal|mensual)(?=\s)/))) r.freq = m[1].startsWith("diari") ? "diaria" : m[1];
+    if ((m = take(/\s(?:los\s+)?(?:dias habiles|de lunes a viernes|lunes a viernes|entre semana)(?=\s)/))) r.freq = "habiles";
+    // contrato y persona
+    if ((m = take(/\s#([\w\-\/.]+)/))) {
+      const q = m[1].replace(/[-/.]/g, ""); const num = q.match(/\d{3,4}/);
+      r.contrato = S.contracts.find((c) => num ? fold(c.codigo).replace(/[^0-9a-z]/g, "").includes(num[0]) : (fold(c.nombre).replace(/\s+/g, "").includes(q) || fold(c.codigo).replace(/[^0-9a-z]/g, "").startsWith(q))) || null;
+      if (!r.contrato) r.warn.push("No encontré el contrato #" + m[1]);
+    }
+    if ((m = take(/\s@(\w+)/))) {
+      const q = m[1]; const n1 = fold(pname("p1")), n2 = fold(pname("p2"));
+      r.resp = /^(ambos|los2|todos|equipo)/.test(q) ? "ambos" : (n1.startsWith(q) || /^(coord|titular|yo$|co$)/.test(q) || "coordinador".startsWith(q)) ? "p1" : (n2.startsWith(q) || /^(ing|aux|liq)/.test(q) || "ingeniera".startsWith(q)) ? "p2" : "";
+      if (!r.resp) r.warn.push("No reconocí a @" + m[1]);
+    }
+    if (take(/\s!(?:alta|urgente)?(?=\s)/) || take(/\s(urgente)(?=\s)/)) r.prio = "alta";
+    // fecha
+    if (!r.fecha) {
+      if (take(/\spasado\s+manana(?=\s)/)) r.fecha = iso(addDays(new Date(), 2));
+      else if (take(/\s(?:para\s+)?manana(?=\s)/)) r.fecha = iso(addDays(new Date(), 1));
+      else if (take(/\s(?:para\s+)?hoy(?=\s)/)) r.fecha = todayISO();
+      else if ((m = take(/\s(?:el\s+|este\s+|para el\s+)?(proximo\s+|siguiente\s+)?(lunes|martes|miercoles|jueves|viernes|sabado|domingo)(\s+(?:que viene|proximo|siguiente))?(?=\s)/))) r.fecha = nextWd(WD[m[2]], !!(m[1] || m[3]));
+      else if ((m = take(/\s(?:el\s+)?(\d{1,2})\s*(?:\/|-)\s*(\d{1,2})(?:\s*(?:\/|-)\s*(\d{2,4}))?(?=\s)/))) { const y = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : new Date().getFullYear(); let d = new Date(y, +m[2] - 1, +m[1]); if (!m[3] && iso(d) < todayISO()) d = new Date(y + 1, +m[2] - 1, +m[1]); r.fecha = iso(d); }
+      else if ((m = take(/\s(?:el\s+)?(\d{1,2})\s+(?:de\s+)?(ene|enero|feb|febrero|mar|marzo|abr|abril|may|mayo|jun|junio|jul|julio|ago|agosto|sep|sept|septiembre|oct|octubre|nov|noviembre|dic|diciembre)\.?(?:\s+(?:de\s+)?(\d{4}))?(?=\s)/))) { const y = m[3] ? +m[3] : new Date().getFullYear(); let d = new Date(y, MO[m[2]], +m[1]); if (!m[3] && iso(d) < todayISO()) d = new Date(y + 1, MO[m[2]], +m[1]); r.fecha = iso(d); }
+      else if ((m = take(/\sen\s+(\d{1,2})\s+dias?(?=\s)/))) r.fecha = iso(addDays(new Date(), +m[1]));
+      else if (take(/\s(?:la\s+)?(?:proxima|siguiente)\s+semana(?=\s)/)) r.fecha = iso(addDays(monday(new Date()), 7));
+    }
+    // horas
+    const AP = "(a\\.?\\s?m\\.?|p\\.?\\s?m\\.?|am|pm)";
+    if ((m = take(new RegExp("\\s(?:de\\s+|desde\\s+(?:las\\s+)?|entre\\s+(?:las\\s+)?|a las\\s+)?(\\d{1,2})(?::(\\d{2}))?\\s*" + AP + "?\\s*(?:-|a(?!\\s*las)|hasta|y)\\s*(?:las\\s+)?(\\d{1,2})(?::(\\d{2}))?\\s*" + AP + "?(?=\\s)")))
+        && (m[2] || m[3] || m[5] || m[6] || /-/.test(m[0]) || /de |desde|entre/.test(m[0]))) {
+      const ap2 = m[6] && m[6].replace(/[.\s]/g, ""), ap1 = (m[3] && m[3].replace(/[.\s]/g, "")) || (ap2 && +m[1] <= +m[4] ? ap2 : "");
+      r.inicio = to24(m[1], m[2], ap1) || ""; r.fin = to24(m[4], m[5], ap2 || ap1) || "";
+      if (r.inicio && r.fin && toMin(r.fin) <= toMin(r.inicio)) r.fin = "";
+    } else if ((m = take(new RegExp("\\s(?:a las\\s+|alas\\s+|las\\s+|a la\\s+)?(\\d{1,2})(?::(\\d{2}))\\s*" + AP + "?(?=\\s)"))) || (m = take(new RegExp("\\s(?:a las\\s+|alas\\s+|las\\s+|a la\\s+)?(\\d{1,2})()\\s*" + AP + "(?=\\s)"))) || (m = take(/\s(?:a las|alas|a la)\s+(\d{1,2})()()(?=\s)/))) {
+      r.inicio = to24(m[1], m[2], m[3] && m[3].replace(/[.\s]/g, "")) || "";
+    }
+    if ((m = take(/\s(?:por\s+|durante\s+)?(\d+(?:[.,]\d+)?)\s*(h|hr|hrs|hora|horas|min|mins|minutos)(?=\s)/))) {
+      const v = parseFloat(m[1].replace(",", ".")), mins = /^h/.test(m[2]) ? v * 60 : v; if (r.inicio && !r.fin) r.fin = hm(toMin(r.inicio) + Math.round(mins));
+      if (!r.tipo) r.tipo = "reunion";
+    }
+    // tipo
+    if (!r.tipo) r.tipo = /\b(reunion|comite|visita|mesa de trabajo|llamada|cita|junta|teams|capacitacion|recorrido)\b/.test(fold(raw)) || (r.inicio && r.fin) ? "reunion" : "tarea";
+    if (r.tipo === "reunion") { if (!r.fecha) r.fecha = todayISO(); if (r.inicio && !r.fin) r.fin = hm(Math.min(toMin(r.inicio) + 60, 23 * 60 + 45)); if (!r.inicio) r.warn.push("Falta la hora de la reunión"); }
+    if (r.freq && !r.fecha) r.fecha = todayISO();
+    let t = orig.replace(/\s+/g, " ").trim().replace(/^[\s,;:.\-]+|[\s,;:\-]+$/g, "");
+    for (let i = 0; i < 3; i++) t = t.replace(/\s+(el|la|los|las|para|a|de|del|en|con|y|desde|hasta|por)$/i, "").trim();
+    r.titulo = t ? t[0].toUpperCase() + t.slice(1) : "";
+    if (!r.titulo) r.warn.push("Falta el título");
+    return r;
+  }
+  function renderQuick() {
+    const v = $("qa-in").value.trim(), box = $("qa-prev"); box.replaceChildren();
+    if (!v) { box.append(el("span", { class: "hint hint0" }, "Usa ", el("kbd", { text: "#contrato" }), " ", el("kbd", { text: "@persona" }), " ", el("kbd", { text: "!" }), " urgente, fechas como “jueves”, “mañana” o “12 nov”, horas como “10am” o “2 a 4pm” y repeticiones como “cada lunes”. Atajo: ", el("kbd", { text: "/" }))); return; }
+    const r = parseQuick(v), c = r.contrato;
+    const pp = (txt, style, cls) => el("span", { class: "pp" + (cls ? " " + cls : ""), style }, txt);
+    box.append(pp(r.tipo === "reunion" ? "Reunión" : "Tarea"), pp(r.titulo || "Sin título", "font-weight:600"));
+    if (r.fecha) box.append(pp(fmtDL(r.fecha)));
+    if (r.inicio) box.append(pp(r.inicio + (r.fin ? " – " + r.fin : "")));
+    box.append(pp([el("span", { class: "dot", style: "--c:" + (c ? c.color : NONE) }), c ? c.nombre : "Sin contrato"]));
+    box.append(pp([pb(r.resp || "p1"), pname(r.resp || "p1")]));
+    if (r.freq) box.append(pp("↻ " + repLabel(r.freq, r.fecha)));
+    if (r.prio) box.append(pp("Prioridad alta", "color:var(--late)"));
+    r.warn.forEach((w) => box.append(pp(w, "", "warn")));
+    box.append(el("span", { class: "hint", text: r.warn.length ? "Enter abre el formulario para completar" : "Enter para crear · Revisar para ajustar" }));
+  }
+  function quickToPre(r) { return { tipo: r.tipo, titulo: r.titulo, fecha: r.fecha, inicio: r.inicio, fin: r.fin, contrato: r.contrato ? r.contrato.id : "", resp: r.resp || "p1", prio: r.prio || "media", freq: r.freq }; }
+  async function submitQuick(review) {
+    const v = $("qa-in").value.trim(); if (!v) return;
+    if (S.readOnly || !S.db) { toast(S.readOnly ? "Tienes acceso de solo lectura." : "Sin conexión: no se puede crear."); return; }
+    const r = parseQuick(v), pre = quickToPre(r);
+    if (review || r.warn.length) { openNew(pre); $("qa-in").value = ""; renderQuick(); return; }
+    const data = buildData(Object.assign({}, pre, { origen: "rapida" }), null);
+    const bad = validate(Object.assign({}, pre)); if (bad) { openNew(pre); return; }
+    try { const ref = await S.db.collection("agenda").add(data); log("crear", Object.assign({ id: ref.id }, data)); $("qa-in").value = ""; renderQuick();
+      toast((r.tipo === "reunion" ? "Reunión programada" : "Tarea creada") + (r.fecha ? " para " + fmtDL(r.fecha) : ""));
+      if (r.fecha && S.view !== "historial") { S.cursor = parse(r.fecha); S.miniMonth = null; render(); } }
+    catch (e) { toast(writeErr(e)); }
+  }
+
+  // ---------- equipo / CSV ----------
+  function openTeam() { $("t-p1").value = pname("p1"); $("t-p2").value = pname("p2"); ["t-p1","t-p2"].forEach((id) => ($(id).disabled = S.readOnly)); $("dlg-team").showModal(); }
+  async function saveTeam(ev) {
+    ev.preventDefault(); if (S.readOnly || !S.db) { $("dlg-team").close(); return; }
+    const p1 = $("t-p1").value.trim() || "Coordinador", p2 = $("t-p2").value.trim() || "Ingeniera";
+    if (p1 === S.people.p1 && p2 === S.people.p2) { $("dlg-team").close(); return; }
+    try { await S.db.doc("config/equipo").set({ p1, p2 }); log("contrato", { tipo: "contrato", titulo: "Nombres del equipo", id: "equipo" }, S.people.p1 + " / " + S.people.p2 + " → " + p1 + " / " + p2); $("dlg-team").close(); toast("Nombres guardados"); } catch (e) { toast(writeErr(e)); }
+  }
+  async function exportCSV() {
+    const rows = [["Tipo","Título","Responsable","Contrato","Fecha","Inicio","Fin","Lugar","Se repite","Hasta","Prioridad","Estado","Vencida","Notas","Último avance","Creada","Completada"]];
+    S.items.slice().sort((a, b) => sortKey(a).localeCompare(sortKey(b))).forEach((x) => { const last = (x.avances || []).slice(-1)[0];
+      rows.push([x.tipo === "reunion" ? "Reunión" : "Tarea", x.titulo, pname(x.resp), cLabel(cOf(x)), x.fecha, x.inicio, x.fin, x.lugar, isSeries(x) ? repLabel(x.rep.freq, x.fecha) : "", isSeries(x) ? (x.rep.hasta || "") : "", x.prio, ({ pendiente: "Pendiente", curso: "En curso", hecha: "Hecha" })[x.estado] || "", isLate(x) ? "Sí" : "No", x.notas, last ? last.t.slice(0, 10) + " " + last.texto : "", (x.creada || "").slice(0, 10), (x.completada || "").slice(0, 10)]); });
+    const csv = "﻿" + rows.map((r) => r.map((c) => '"' + String(c ?? "").replace(/"/g, '""') + '"').join(";")).join("\r\n");
+    let dl = null; try { dl = await window.claude?.use?.("downloads"); } catch {}
+    if (!dl) { toast("La descarga no está disponible en esta vista."); return; }
+    try { await dl.save({ filename: "agenda-" + todayISO() + ".csv", data: csv }); } catch (e) { if (e && e.code !== "declined") toast("No se pudo descargar el archivo."); }
+  }
+
+  // ---------- conexión ----------
+  function setStatus(msg) {
+    const n = $("notice");
+    $("status").textContent = msg || (S.loaded ? (S.readOnly ? "Solo lectura · cambios en vivo" : "Compartido · cambios en vivo") : "Conectando…");
+    n.hidden = true;
+    if (S.db === false) { n.hidden = false; n.replaceChildren(el("b", { text: "Sin conexión con la base de datos. " }), "Abre esta página en claude.ai con tu sesión iniciada para ver y guardar la agenda compartida."); }
+    else if (S.readOnly) { n.hidden = false; n.replaceChildren(el("b", { text: "Acceso de solo lectura. " }), "Para crear o editar, el dueño del tablero debe darte acceso como Editor o Colaborador desde Compartir."); }
+    ["btn-meet","btn-task"].forEach((id) => ($(id).disabled = S.readOnly || !S.db)); $("btn-team").disabled = !S.db; $("qa").hidden = S.readOnly || S.db === false; $("qa-prev").hidden = $("qa").hidden;
+  }
+  async function resolveNames() {
+    if (!S.user) return; const ids = [...new Set(S.hist.map((h) => h.uid).filter(Boolean))].filter((id) => !(id in S.names)); if (!ids.length) return;
+    try { const ps = await S.user.profiles(ids); ids.forEach((id) => { S.names[id] = (ps[id] && ps[id].name) || ""; }); if (S.view === "historial") renderHist(); } catch {}
+  }
+  async function connect() {
+    let db = null; try { db = await window.claude?.use?.("db"); } catch {}
+    if (!db) { S.db = false; setStatus("Sin conexión"); render(); return; }
+    S.db = db;
+    try { S.user = await window.claude?.use?.("user"); if (S.user) { S.uid = await S.user.id(); S.isOwner = await S.user.isOwner(); const can = await S.user.can("data.write"); if (can === false) S.readOnly = true; } } catch {}
+    setStatus();
+    const timer = setTimeout(() => { if (!S.loaded) setStatus("La conexión está tardando…"); }, 10000);
+    db.doc("config/contratos").onSnapshot((s) => { const d = s.exists ? s.data() : null; S.contracts = (d && Array.isArray(d.lista)) ? d.lista.filter((c) => c && c.id) : []; render(); renderQuick(); }, () => {});
+    db.doc("config/equipo").onSnapshot((s) => { const d = s.exists ? s.data() : null; if (d) { S.people = { p1: d.p1 || "Coordinador", p2: d.p2 || "Ingeniera" }; render(); } }, () => {});
+    db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.items = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); S.loaded = true; setStatus(); render(); },
+      (e) => { clearTimeout(timer); if (e && (e.code === "revoked" || e.code === "not_granted")) S.db = false; setStatus("No se pudo cargar la agenda."); render(); });
+    db.collection("liq").limit(50).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liq = o; if (S.loaded) render(); }, () => {});
+    db.collection("liqmod").limit(1000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liqmod = o; if (S.loaded) render(); }, () => {});
+    if (S.isOwner) {
+      const by = {}, subs = {};
+      const merge = () => { S.hist = Object.values(by).flat().sort((a, b) => (b.t || "").localeCompare(a.t || "")); resolveNames(); if (S.view === "historial") renderHist(); };
+      db.collection("historial").limit(60).onSnapshot((snap) => snap.docs.forEach((d) => { const uid = d.id; if (subs[uid]) return;
+        subs[uid] = db.collection("historial/" + uid + "/log").orderBy("t", "desc").limit(300).onSnapshot((s2) => { by[uid] = s2.docs.map((x) => x.data()); merge(); }, () => {}); }), () => {});
+    }
+    applyRole();
+  }
+
+  // ---------- eventos ----------
+  function applyRole() {
+    const seg = document.querySelector('.seg [data-view="historial"]'); if (seg) seg.textContent = S.isOwner ? "Pendientes e historial" : "Pendientes";
+  }
+  function setView(v) { S.view = v; S.miniMonth = null; render(); }
+  function shift(dir) { const c = S.cursor; S.cursor = S.view === "mes" ? new Date(c.getFullYear(), c.getMonth() + dir, 1) : addDays(c, (S.view === "agenda" ? 1 : 7) * dir); S.miniMonth = null; render(); }
+  document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
+  $("prev").onclick = () => shift(-1); $("next").onclick = () => shift(1); $("today").onclick = () => { S.cursor = new Date(); S.miniMonth = null; render(); };
+  $("mini-prev").onclick = () => { S.miniMonth = new Date(S.miniMonth.getFullYear(), S.miniMonth.getMonth() - 1, 1); renderMini(); };
+  $("mini-next").onclick = () => { S.miniMonth = new Date(S.miniMonth.getFullYear(), S.miniMonth.getMonth() + 1, 1); renderMini(); };
+  [["f-p1","p1"],["f-p2","p2"],["f-both","ambos"]].forEach(([id, k]) => $(id).addEventListener("change", (e) => { S.show[k] = e.target.checked; renderView(); }));
+  $("btn-meet").onclick = () => openNew({ tipo: "reunion", fecha: S.view === "semana" && iso(monday(S.cursor)) > todayISO() ? iso(monday(S.cursor)) : todayISO(), inicio: "09:00" });
+  $("btn-task").onclick = () => openNew({ tipo: "tarea" });
+  document.querySelectorAll("#tipo-seg [data-tipo]").forEach((b) => (b.onclick = () => { setTipo(b.dataset.tipo); $("dlg-title").textContent = S.tipo === "reunion" ? "Nueva reunión" : "Nueva tarea"; if (S.tipo === "reunion") { if (!$("i-fecha").value) $("i-fecha").value = todayISO(); if (!$("i-ini").value) { $("i-ini").value = "09:00"; $("i-fin").value = "10:00"; } } }));
+  $("form").addEventListener("submit", save);
+  $("dlg-x").onclick = closeDlg; $("btn-cancel").onclick = closeDlg; $("btn-del").onclick = del; $("btn-del1").onclick = delOne; $("btn-av").onclick = addAv;
+  $("i-av").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addAv(); } });
+  $("i-ini").addEventListener("change", () => { if (S.tipo === "reunion") { const a = toMin($("i-ini").value), b = toMin($("i-fin").value); if (a != null && (b == null || b <= a)) $("i-fin").value = hm(a + 60); } });
+  $("i-fecha").addEventListener("change", () => fillRep($("i-rep").value));
+  $("i-rep").addEventListener("change", () => { $("w-hasta").hidden = !$("i-rep").value; if ($("i-rep").value && !$("i-fecha").value) { $("i-fecha").value = todayISO(); fillRep($("i-rep").value); } });
+  $("btn-team").onclick = openTeam; $("form-team").addEventListener("submit", saveTeam); $("team-cancel").onclick = () => $("dlg-team").close();
+  $("btn-csv").onclick = exportCSV;
+  $("qa-in").addEventListener("input", renderQuick);
+  $("qa").addEventListener("submit", (e) => { e.preventDefault(); submitQuick(false); });
+  $("qa-more").onclick = () => submitQuick(true);
+  $("qa-in").addEventListener("keydown", (e) => { if (e.key === "Escape") { $("qa-in").value = ""; renderQuick(); $("qa-in").blur(); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") && !document.querySelector("dialog[open]")) { e.preventDefault(); $("qa-in").focus(); } });
+  setInterval(() => { if (S.view === "semana") renderWeek(); }, 5 * 60 * 1000);
+
+
+  // ---------- liquidaciones ----------
+  const EST = ["EN PROCESO", "RADICADO A INT", "RADICADO A IDU", "RADICADO A LA ESP", "APROBADO POR LA ESP", "APROBADO POR IDU"];
+  const EST_L = { "EN PROCESO": "En proceso", "RADICADO A INT": "Radicado a interventoría", "RADICADO A IDU": "Radicado a IDU", "RADICADO A LA ESP": "Radicado a la ESP", "APROBADO POR LA ESP": "Aprobado por la ESP", "APROBADO POR IDU": "Aprobado por IDU" };
+  const EST_C = { "EN PROCESO": "#8b98a5", "RADICADO A INT": "#facc15", "RADICADO A IDU": "#fb923c", "RADICADO A LA ESP": "#c084fc", "APROBADO POR LA ESP": "#38bdf8", "APROBADO POR IDU": "#34d399" };
+  const FASES = { liquidacion: "En liquidación", ejecucion: "En ejecución", garantias: "En garantías", definir: "Por definir" };
+  const TIPOS = { construccion: "Construcción", conservacion: "Conservación", otro: "Otro" };
+  const DONE_EST = "APROBADO POR IDU";
+  const L = { sel: null, area: "", est: "", q: "", pend: false, plazo: "", open: {}, edit: null, add: null, showHidden: false };
+  S.liq = {}; S.liqmod = {};
+  const fmtDY = (s) => { const d = parse(s); return d.getDate() + " " + MESES[d.getMonth()].slice(0, 3) + " " + d.getFullYear(); };
+  const money = (v) => typeof v === "number" ? (Math.abs(v) >= 1e6 ? new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(v) : new Intl.NumberFormat("es-CO").format(v)) : String(v ?? "");
+  function addMonths(s, m) { const d = parse(s), day = d.getDate(); const x = new Date(d.getFullYear(), d.getMonth() + m, 1); const last = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate(); x.setDate(Math.min(day, last)); return iso(x); }
+  function legal(c) {
+    if (!c || !c.fterm) return null;
+    const bil = addMonths(c.fterm, +(c.plazoMeses || 4)), uni = addMonths(bil, 2), lim = addMonths(uni, 24), t0 = todayISO();
+    const steps = [["Común acuerdo", bil], ["Unilateral", uni], ["Límite (2 años)", lim]];
+    const cur = steps.find(([, d]) => d >= t0) || null;
+    return { steps, cur, days: cur ? daysBetween(t0, cur[1]) : null };
+  }
+  const pickMod = (m) => { const o = {}; ["s", "pl", "rp", "ri", "o", "oculto", "q"].forEach((k) => { if (k in m) o[k] = m[k]; }); return o; };
+  function liqItems(cid) {
+    const base = (S.liq[cid] && S.liq[cid].items) || [];
+    const mods = Object.values(S.liqmod).filter((m) => m.cid === cid);
+    const byRow = {}; mods.forEach((m) => { if (!m.nuevo) byRow[m.row] = m; });
+    const extras = mods.filter((m) => m.nuevo).sort((a, b) => (a.creada || a.t || "").localeCompare(b.creada || b.t || ""));
+    const out = [];
+    const pushExtras = (row, depth) => { if (depth > 20) return; extras.filter((m) => m.despues === row).forEach((m) => { out.push(Object.assign({ r: m.row, n: m.n || "e", et: m.et || "", a: m.a || "", s: "EN PROCESO", nuevo: true }, pickMod(m))); pushExtras(m.row, depth + 1); }); };
+    base.forEach((it) => { const m = byRow[it.r]; out.push(m ? Object.assign({}, it, pickMod(m)) : it); pushExtras(it.r, 0); });
+    return out;
+  }
+  function annotate(items0) {
+    // En algunas listas los entregables aparecen antes de su requisito principal: se ubican debajo de él.
+    const items = []; let pend = [], et = null, seenP = false;
+    const flush = () => { items.push(...pend); pend = []; };
+    items0.forEach((it) => {
+      if (it.et !== et) { flush(); et = it.et; seenP = false; }
+      if (it.n === "e" && !seenP) { pend.push(it); return; }
+      if (it.n === "p") { seenP = true; items.push(it); flush(); return; }
+      if (it.n === "g") { flush(); seenP = false; }
+      items.push(it);
+    });
+    flush();
+    let g = "", p = null;
+    return items.map((it) => { const x = Object.assign({}, it);
+      if (x.n === "g") { g = x.r; p = null; } else if (x.n === "p") { p = x.r; x.g = g; } else if (x.n === "e") { x.g = g; x.p = p; }
+      return x; });
+  }
+  function liqStats(cid) {
+    const its = liqItems(cid).filter((x) => !x.oculto), t0 = todayISO();
+    const ps = its.filter((x) => x.n === "p"), cnt = {}; EST.forEach((e) => (cnt[e] = 0));
+    ps.forEach((x) => { if (cnt[x.s] != null) cnt[x.s]++; else cnt["EN PROCESO"]++; });
+    const pend = its.filter((x) => (x.n === "p" || x.n === "e") && x.s !== DONE_EST && x.pl);
+    return { total: ps.length, cnt, done: cnt[DONE_EST], late: pend.filter((x) => x.pl < t0).length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
+  }
+  const stackBar = (cnt) => el("div", { class: "sbar", title: EST.map((e) => EST_L[e] + ": " + cnt[e]).join("\n") }, EST.map((e) => cnt[e] ? el("span", { style: "flex:" + cnt[e] + ";background:" + EST_C[e] }) : null));
+  function liqDue(from, to) {
+    const out = [];
+    S.contracts.forEach((c) => { if (S.hideC[c.id] || !S.liq[c.id]) return; const m = {};
+      liqItems(c.id).forEach((x) => { if (x.oculto || x.s === DONE_EST || !x.pl || (x.n !== "p" && x.n !== "e")) return; if (x.pl >= from && x.pl <= to) (m[x.pl] = m[x.pl] || []).push(x); });
+      Object.entries(m).forEach(([d, xs]) => out.push({ tipo: "liq", id: "liq-" + c.id + d, fecha: d, contrato: c.id, resp: "p1", titulo: c.nombre + ": " + xs.length + (xs.length === 1 ? " requisito de liquidación" : " requisitos de liquidación"), n: xs.length })); });
+    return out;
+  }
+  function liqLate() { const t0 = todayISO(); return S.contracts.filter((c) => !S.hideC[c.id] && S.liq[c.id]).map((c) => ({ c, n: liqItems(c.id).filter((x) => !x.oculto && x.s !== DONE_EST && x.pl && x.pl < t0 && (x.n === "p" || x.n === "e")).length })).filter((o) => o.n); }
+  function openLiq(cid, plazo) { L.sel = cid; L.plazo = plazo || ""; L.area = ""; L.est = ""; L.q = ""; L.pend = !!plazo; L.edit = null; setView("liq"); window.scrollTo(0, 0); }
+  function liqChip(x) {
+    return el("button", { type: "button", class: "chip" + (x.fecha < todayISO() ? " late" : ""), style: varsFor(x), title: "Plazos de liquidación\n" + x.titulo, onclick: (e) => { e.stopPropagation(); openLiq(x.contrato, x.fecha); } },
+      el("span", { class: "lq", text: "§" }), el("span", { class: "tx", style: "flex:1", text: x.titulo }));
+  }
+  function agLiq(x, lateN) {
+    const c = cOf(x);
+    return el("button", { type: "button", class: "ar" + (lateN || x.fecha < todayISO() ? " late" : ""), style: varsFor(x), onclick: () => openLiq(x.contrato, lateN ? "" : x.fecha) },
+      el("span", { class: "lq", style: "font-size:16px;width:20px;text-align:center", text: "§" }),
+      el("span", { class: "ab" }, el("b", { text: lateN ? (c ? c.nombre : "") + ": " + lateN + (lateN === 1 ? " requisito de liquidación vencido" : " requisitos de liquidación vencidos") : x.titulo }), el("small", { text: (c ? c.codigo : "") + " · toca para ver la lista" })));
+  }
+
+  async function saveContract(cid, patch) {
+    if (S.readOnly || !S.db) return;
+    const prev = S.contracts.find((c) => c.id === cid) || {};
+    const lista = S.contracts.map((c) => c.id === cid ? Object.assign({}, c, patch) : c);
+    const lbl = { fase: "fase", tipo: "tipo", fterm: "fecha de terminación", plazoMeses: "plazo para liquidar" };
+    const val = (k, v) => k === "fase" ? FASES[v] || v : k === "tipo" ? TIPOS[v] || v : k === "fterm" ? (v ? fmtDY(v) : "sin fecha") : k === "plazoMeses" ? v + " meses" : v;
+    const note = Object.keys(patch).filter((k) => patch[k] !== prev[k]).map((k) => (lbl[k] || k) + ": " + val(k, prev[k] || "—") + " → " + val(k, patch[k])).join(" · ");
+    try { await S.db.doc("config/contratos").set({ lista }); if (note) log("contrato", { tipo: "contrato", titulo: prev.codigo + " · " + prev.nombre, id: cid }, note); toast("Contrato actualizado"); } catch (e) { toast(writeErr(e)); }
+  }
+  async function saveLiq(c, x, patch) {
+    if (S.readOnly || !S.db) return;
+    const key = c.id + "__" + x.r, prev = S.liqmod[key] || {};
+    const data = Object.assign({ cid: c.id, row: x.r, s: x.s || "", pl: x.pl || "", rp: x.rp || "", ri: x.ri || "", o: x.o || "", oculto: !!x.oculto },
+      x.nuevo ? { nuevo: true, despues: prev.despues || "", n: x.n, et: x.et || "", a: x.a || "", q: x.q, creada: prev.creada || prev.t || "" } : {}, patch, { t: new Date().toISOString(), uid: S.uid || "" });
+    const parts = [c.codigo];
+    if (patch.s && patch.s !== x.s) parts.push(EST_L[patch.s] || patch.s);
+    if (patch.pl != null && patch.pl !== (x.pl || "")) parts.push(patch.pl ? "plazo " + fmtD(patch.pl) : "sin plazo");
+    if (patch.o != null && patch.o !== (x.o || "")) parts.push(patch.o.slice(0, 160));
+    if (patch.oculto != null && patch.oculto !== !!x.oculto) parts.push(patch.oculto ? "marcado como no aplica" : "vuelve a aplicar");
+    try { await S.db.doc("liqmod/" + key).set(data); if (parts.length > 1) log("liq", { tipo: "liq", titulo: x.q, id: key }, parts.join(" · ")); toast("Guardado"); }
+    catch (e) { toast(writeErr(e)); render(); }
+  }
+  async function addLiqItem(c, p, anchor, text) {
+    if (S.readOnly || !S.db || !text.trim()) return;
+    const row = "n" + Date.now().toString(36), key = c.id + "__" + row, now = new Date().toISOString();
+    const data = { cid: c.id, row, nuevo: true, despues: anchor, n: "e", et: p.et || "", a: p.a || "", q: text.trim(), s: "EN PROCESO", pl: "", rp: "", ri: "", o: "", oculto: false, creada: now, t: now, uid: S.uid || "" };
+    try { await S.db.doc("liqmod/" + key).set(data); log("liq", { tipo: "liq", titulo: text.trim(), id: key }, c.codigo + " · nuevo entregable en " + p.q); L.add = null; toast("Entregable agregado"); } catch (e) { toast(writeErr(e)); }
+  }
+
+  function renderLiq() {
+    const box = $("v-liq");
+    const c = L.sel && S.contracts.find((x) => x.id === L.sel);
+    if (c) return renderLiqDetail(box, c);
+    L.sel = null;
+    const wrap = el("div", { class: "lq-wrap" });
+    if (!S.loaded) { wrap.append(el("div", { class: "empty", text: S.db === false ? "Sin conexión con la base de datos." : "Cargando…" })); box.replaceChildren(wrap); return; }
+    ["liquidacion", "ejecucion", "garantias", "definir"].forEach((f) => {
+      const cs = S.contracts.filter((c) => !c.archivado && (c.fase || "definir") === f); if (!cs.length) return;
+      wrap.append(el("div", { class: "lq-sec" }, el("h2", { text: FASES[f] }), el("span", { class: "lbl", text: cs.length + (cs.length === 1 ? " contrato" : " contratos") })));
+      wrap.append(el("div", { class: "lq-grid" + (f === "liquidacion" ? "" : " small") }, cs.map((c) => f === "liquidacion" ? liqCard(c) : miniCard(c, f))));
+    });
+    box.replaceChildren(wrap);
+  }
+  function legalLine(c) {
+    const lg = legal(c);
+    if (!lg) return el("span", { class: "lq-legal muted", text: "Agrega la fecha de terminación para calcular los plazos legales." });
+    if (!lg.cur) return el("span", { class: "lq-legal late", text: "Venció el plazo legal para liquidar (" + fmtDY(lg.steps[2][1]) + ")" });
+    return el("span", { class: "lq-legal" + (lg.days <= 30 ? " late" : "") }, el("b", { text: lg.cur[0] }), " hasta " + fmtDY(lg.cur[1]) + " · quedan " + lg.days + " días");
+  }
+  function liqCard(c) {
+    const st = liqStats(c.id);
+    return el("button", { type: "button", class: "lq-card", style: colorVars(c.color), onclick: () => openLiq(c.id) },
+      el("div", { class: "lq-ch" }, el("span", { class: "dot" }), el("b", { text: c.nombre }), el("span", { class: "cd", text: c.codigo }), c.tipo ? el("span", { class: "tag", text: TIPOS[c.tipo] || c.tipo }) : null),
+      st.has ? [el("div", { class: "lq-pct" }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales aprobados por IDU" })), stackBar(st.cnt),
+        el("div", { class: "lq-meta" }, st.late ? el("span", { class: "late", text: st.late + " con plazo vencido" }) : el("span", { text: "Sin plazos vencidos" }), st.next ? el("span", { text: "Próximo plazo: " + fmtD(st.next) }) : null)]
+        : el("span", { class: "muted", text: "Aún no tiene lista de chequeo cargada." }),
+      legalLine(c));
+  }
+  function miniCard(c, f) {
+    const t0 = todayISO();
+    const line = f === "ejecucion" ? (c.fterm ? (c.fterm >= t0 ? "Termina el " + fmtDY(c.fterm) + " · faltan " + daysBetween(t0, c.fterm) + " días" : "Terminó el " + fmtDY(c.fterm) + ": pásalo a liquidación") : "Sin fecha de terminación")
+      : f === "garantias" ? "Liquidado · seguimiento de garantías" : "Fase por definir";
+    return el("button", { type: "button", class: "lq-card mini", style: colorVars(c.color), onclick: () => openLiq(c.id) },
+      el("div", { class: "lq-ch" }, el("span", { class: "dot" }), el("b", { text: c.nombre }), el("span", { class: "cd", text: c.codigo })),
+      el("span", { class: "muted" + (f === "ejecucion" && c.fterm && daysBetween(t0, c.fterm) <= 30 ? " late" : ""), text: line }));
+  }
+  function fld(label, ctrl) { return el("div", { class: "field" }, el("label", { text: label }), ctrl); }
+  function liqFilterMatch(x) {
+    if (!L.showHidden && x.oculto) return false;
+    if (L.area && x.a !== L.area) return false;
+    if (L.est && x.s !== L.est) return false;
+    if (L.pend && x.s === DONE_EST) return false;
+    if (L.plazo && x.pl !== L.plazo) return false;
+    if (L.q && !fold([x.q, x.o, x.rp, x.ri].filter(Boolean).join(" ")).includes(fold(L.q))) return false;
+    return true;
+  }
+  function renderLiqDetail(box, c) {
+    const t0 = todayISO(), doc = S.liq[c.id] || null, ro = S.readOnly;
+    const head = el("div", { class: "lq-head", style: colorVars(c.color) },
+      el("div", null, el("button", { type: "button", class: "link-btn", text: "‹ Todos los contratos", onclick: () => { L.sel = null; L.edit = null; renderTop(); renderLiq(); } })),
+      el("div", { class: "lq-title" }, el("span", { class: "dot" }), el("h2", { text: c.nombre }), el("span", { class: "cd", text: c.codigo }), c.tipo ? el("span", { class: "tag", text: TIPOS[c.tipo] }) : null),
+      el("div", { class: "lq-form" },
+        fld("Fase", el("select", { disabled: ro, onchange: (e) => saveContract(c.id, { fase: e.target.value }) }, Object.entries(FASES).map(([k, v]) => el("option", { value: k, text: v, selected: (c.fase || "definir") === k })))),
+        fld("Tipo de contrato", el("select", { disabled: ro, onchange: (e) => saveContract(c.id, { tipo: e.target.value }) }, Object.entries(TIPOS).map(([k, v]) => el("option", { value: k, text: v, selected: (c.tipo || "otro") === k })))),
+        fld("Fecha de terminación", el("input", { type: "date", value: c.fterm || "", disabled: ro, onchange: (e) => saveContract(c.id, { fterm: e.target.value }) })),
+        fld("Plazo pactado para liquidar (meses)", el("input", { type: "number", min: "1", max: "36", value: String(c.plazoMeses || 4), disabled: ro, onchange: (e) => saveContract(c.id, { plazoMeses: Math.max(1, +e.target.value || 4) }) }))));
+    const parts = [head];
+    if ((c.fase || "definir") === "liquidacion" || c.fterm) {
+      const lg = legal(c);
+      parts.push(lg ? el("div", { class: "lq-steps" }, lg.steps.map(([n, d]) => el("div", { class: "lq-step" + (lg.cur && lg.cur[1] === d ? " cur" : "") + (d < t0 ? " past" : "") }, el("span", { class: "lbl", text: n }), el("b", { text: fmtDY(d) }), el("small", { text: d < t0 ? "vencido" : "quedan " + daysBetween(t0, d) + " días" }))))
+        : el("div", { class: "lq-note", text: "Con la fecha de terminación calculo los vencimientos: liquidación de común acuerdo (plazo pactado, o 4 meses), unilateral (2 meses más) y el límite de 2 años (Ley 1150 de 2007, art. 11)." }));
+    }
+    if (!doc) {
+      const f = c.fase || "definir";
+      parts.push(el("div", { class: "empty" }, el("b", { text: f === "ejecucion" ? "Contrato en ejecución" : f === "garantias" ? "Contrato liquidado, en garantías" : "Sin lista de chequeo" }),
+        el("span", { text: f === "ejecucion" ? "Cuando termine, cambia la fase a \"En liquidación\" y se le carga su lista de chequeo." : f === "garantias" ? "No requiere lista de chequeo de liquidación." : "Aún no tiene lista de chequeo cargada." })));
+      box.replaceChildren(el("div", { class: "lq-wrap" }, parts)); return;
+    }
+    const items = annotate(liqItems(c.id)), st = liqStats(c.id);
+    parts.push(el("div", { class: "lq-stats" },
+      el("div", { class: "lq-pct", style: colorVars(c.color) }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales aprobados por IDU" + (st.late ? " · " : "") }, st.late ? el("span", { class: "late", text: st.late + " con plazo vencido" }) : null)),
+      stackBar(st.cnt),
+      el("div", { class: "est-chips" }, EST.map((e) => el("button", { type: "button", "aria-pressed": String(L.est === e), onclick: () => { L.est = L.est === e ? "" : e; renderLiq(); } }, el("i", { style: "background:" + EST_C[e] }), EST_L[e] + " · " + st.cnt[e])))));
+    const imp = items.filter((x) => x.n === "x");
+    if (imp.length) parts.push(el("div", { class: "lq-imp" }, el("b", { text: "Importantes" }), imp.map((x) => el("span", { text: x.q + (x.o ? " — " + x.o : "") }))));
+    const kv = (rows) => el("div", { class: "kv" }, rows.flatMap((r) => r.length < 2 ? [el("span", { class: "hd", text: String(r[0]) })] : [el("span", { text: String(r[0]) }), el("span", { text: money(r[1]) })]));
+    if (doc.datos) parts.push(el("details", { class: "lq-dt" }, el("summary", { text: "Datos del contrato" }), kv(doc.datos)));
+    if (doc.fin) parts.push(el("details", { class: "lq-dt" }, el("summary", { text: "Información financiera" }), kv(doc.fin)));
+    const areas = [...new Set(items.filter((x) => x.a && x.n !== "x").map((x) => x.a))];
+    const search = el("input", { type: "search", placeholder: "Buscar requisito, responsable u observación", value: L.q, "aria-label": "Buscar en la lista de chequeo" });
+    search.addEventListener("input", () => { L.q = search.value; clearTimeout(search._t); search._t = setTimeout(() => { renderLiq(); const s2 = $("v-liq").querySelector('input[type="search"]'); if (s2) { s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); } }, 250); });
+    const hiddenN = items.filter((x) => x.oculto).length;
+    parts.push(el("div", { class: "lq-filters" }, search,
+      el("label", null, el("input", { type: "checkbox", checked: L.pend, onchange: (e) => { L.pend = e.target.checked; renderLiq(); } }), "Solo pendientes"),
+      hiddenN ? el("label", null, el("input", { type: "checkbox", checked: L.showHidden, onchange: (e) => { L.showHidden = e.target.checked; renderLiq(); } }), "Ver los que no aplican (" + hiddenN + ")") : null,
+      L.plazo ? el("button", { type: "button", class: "btn", style: "padding:5px 10px;font-size:12px", onclick: () => { L.plazo = ""; L.pend = false; renderLiq(); } }, "Plazo " + fmtD(L.plazo) + " ✕") : null));
+    parts.push(el("div", { class: "chips" }, el("button", { type: "button", "aria-pressed": String(!L.area), text: "Todas las áreas", onclick: () => { L.area = ""; renderLiq(); } }),
+      areas.map((a) => el("button", { type: "button", "aria-pressed": String(L.area === a), text: a[0] + a.slice(1).toLowerCase(), onclick: () => { L.area = L.area === a ? "" : a; renderLiq(); } }))));
+    parts.push(liqList(c, items));
+    box.replaceChildren(el("div", { class: "lq-wrap" }, parts));
+  }
+  function liqList(c, items) {
+    const t0 = todayISO(), filtering = !!(L.area || L.est || L.q || L.pend || L.plazo);
+    const kids = {}; items.forEach((x) => { if (x.n === "e" && x.p && (L.showHidden || !x.oculto)) { (kids[x.p] = kids[x.p] || []).push(x); } });
+    const visE = new Set(items.filter((x) => x.n === "e" && liqFilterMatch(x)).map((x) => x.r));
+    const visP = new Set(items.filter((x) => x.n === "p" && (liqFilterMatch(x) || (kids[x.r] || []).some((k) => visE.has(k.r)))).map((x) => x.r));
+    const list = el("div", { class: "lq-list" }); let et = null, shown = 0;
+    const grpHas = (g) => items.some((x) => x.g === g && (visP.has(x.r) || visE.has(x.r)));
+    items.forEach((x) => {
+      if (x.n === "x") return;
+      if (x.n === "g") { if (!filtering || grpHas(x.r)) { if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } list.append(el("div", { class: "lq-g" }, el("span", { text: x.q }), estSel(c, x))); } return; }
+      if (x.n === "p") { if (!visP.has(x.r)) return; if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } shown++; list.append(liqRow(c, x, kids[x.r] || [], filtering)); if (L.edit === x.r) list.append(liqEditor(c, x)); return; }
+      if (x.n === "e") { const open = filtering || L.open[x.p]; if (!x.p) { if (!visE.has(x.r)) return; } else if (!open || !visE.has(x.r)) return; shown++; list.append(liqRow(c, x, null, filtering)); if (L.edit === x.r) list.append(liqEditor(c, x));
+        const sib = kids[x.p] || []; if (L.add === x.p && sib[sib.length - 1] === x) list.append(addRow(c, items.find((y) => y.r === x.p), x.r)); }
+    });
+    items.filter((x) => x.n === "p" && L.add === x.r && !(kids[x.r] || []).length).forEach((p) => list.append(addRow(c, p, p.r)));
+    if (!shown) list.append(el("div", { class: "empty", text: "Ningún requisito coincide con los filtros." }));
+    return list;
+  }
+  function estSel(c, x) {
+    const known = EST.includes(x.s);
+    return el("select", { class: "est", "aria-label": "Estado de " + x.q, style: "--e:" + (EST_C[x.s] || "#64748b"), disabled: S.readOnly, onclick: (e) => e.stopPropagation(), onchange: (e) => saveLiq(c, x, { s: e.target.value }) },
+      known ? null : el("option", { value: x.s || "", text: x.s || "Sin estado", selected: true }), EST.map((e) => el("option", { value: e, text: EST_L[e], selected: x.s === e })));
+  }
+  function liqRow(c, x, kids, filtering) {
+    const t0 = todayISO(), late = x.pl && x.pl < t0 && x.s !== DONE_EST, open = filtering || L.open[x.r];
+    const kd = kids ? kids.filter((k) => !k.oculto) : null;
+    return el("div", { class: "lq-r " + x.n + (x.oculto ? " hid" : "") + (x.nuevo ? " nuevo" : "") },
+      x.n === "p" && kids && kids.length ? el("button", { type: "button", class: "chev", "aria-expanded": String(!!open), "aria-label": (open ? "Ocultar" : "Ver") + " entregables", onclick: () => { L.open[x.r] = !L.open[x.r]; renderLiq(); } }, open ? "▾" : "▸") : el("span", { class: "chev" }),
+      el("div", { style: "min-width:0" },
+        el("button", { type: "button", class: "lq-q", text: x.q, title: "Editar estado, plazo, responsable y observaciones", onclick: () => { L.edit = L.edit === x.r ? null : x.r; renderLiq(); } }),
+        el("div", { class: "lq-m" }, x.a ? el("span", { class: "tag", text: x.a }) : null,
+          kd && kd.length ? el("span", { text: kd.filter((k) => k.s === DONE_EST).length + "/" + kd.length + " entregables aprobados" }) : null,
+          x.rp ? el("span", { text: x.rp }) : null,
+          x.pl ? el("span", { class: late ? "late" : "", text: (late ? "Venció " : "Plazo ") + fmtD(x.pl) }) : (x.plt ? el("span", { text: x.plt }) : null),
+          x.oculto ? el("span", { text: "No aplica" }) : null,
+          x.o ? el("span", { class: "obs", text: x.o.length > 110 ? x.o.slice(0, 110) + "…" : x.o, title: x.o }) : null)),
+      estSel(c, x));
+  }
+  function liqEditor(c, x) {
+    const ro = S.readOnly;
+    const pl = el("input", { type: "date", value: x.pl || "", disabled: ro }), rp = el("input", { value: x.rp || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Oscar" }), ri = el("input", { value: x.ri || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Luis Villegas" });
+    const o = el("textarea", { maxlength: "2000", disabled: ro, placeholder: "Qué pasó, qué falta, a quién se le envió…" }); o.value = x.o || "";
+    return el("div", { class: "lq-ed" },
+      el("div", { class: "field" }, el("label", { text: "Plazo de entrega" }), pl),
+      el("div", { class: "field" }, el("label", { text: "Responsable" }), rp),
+      el("div", { class: "field" }, el("label", { text: "Responsable interno" }), ri),
+      el("div", { class: "field full" }, el("label", { text: "Observaciones" }), o),
+      el("div", { class: "acts" },
+        el("div", null, el("button", { type: "button", class: "btn", disabled: ro, text: x.oculto ? "Sí aplica" : "No aplica", onclick: () => { saveLiq(c, x, { oculto: !x.oculto }); L.edit = null; } }),
+          x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar entregable", onclick: () => { L.add = x.r; L.open[x.r] = true; L.edit = null; renderLiq(); } }) : null),
+        el("div", null, el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.edit = null; renderLiq(); } }),
+          el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; saveLiq(c, x, { pl: pl.value, rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim() }); } }))));
+  }
+  function addRow(c, p, anchor) {
+    const inp = el("input", { placeholder: "Nuevo entregable de \"" + p.q.slice(0, 40) + "\"", maxlength: "200", "aria-label": "Nuevo entregable" });
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addLiqItem(c, p, anchor, inp.value); } if (e.key === "Escape") { L.add = null; renderLiq(); } });
+    setTimeout(() => inp.focus(), 0);
+    return el("div", { class: "lq-add" }, inp, el("button", { type: "button", class: "btn primary", text: "Agregar", onclick: () => addLiqItem(c, p, anchor, inp.value) }), el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.add = null; renderLiq(); } }));
+  }
+
+  // ---------- agenda (lista por días, pensada para celular) ----------
+  const isMobile = () => window.matchMedia("(max-width: 700px)").matches;
+  function agMeet(x) {
+    const c = cOf(x);
+    return el("button", { type: "button", class: "ar meet", style: varsFor(x), onclick: () => openItem(x) },
+      el("span", { class: "at" }, el("b", { text: x.inicio || "" }), el("small", { text: x.fin || "" })), el("span", { class: "abar" }),
+      el("span", { class: "ab" }, el("b", { text: x.titulo }), el("small", { text: [c ? c.nombre : "Sin contrato", x.lugar].filter(Boolean).join(" · ") + (isSeries(x) ? " · ↻" : "") })), pb(x.resp));
+  }
+  function agTask(x) {
+    const c = cOf(x), late = isLate(x);
+    return el("div", { class: "ar" + (x.estado === "hecha" ? " done" : "") + (late ? " late" : ""), style: varsFor(x) },
+      el("input", { type: "checkbox", checked: x.estado === "hecha", disabled: S.readOnly, "aria-label": "Marcar como hecha: " + x.titulo, onchange: (e) => toggleDone(x, e.target.checked) }),
+      el("button", { type: "button", class: "tb", onclick: () => openItem(x) }, el("b", { text: x.titulo }),
+        el("small", null, el("span", { class: "cdot" }), (c ? c.nombre : "Sin contrato") + (x.inicio ? " · " + x.inicio : "") + (late ? " · venció " + fmtD(x.fecha) : "") + (x.prio === "alta" ? " · prioridad alta" : "") + (isSeries(x) ? " · ↻" : ""))),
+      pb(x.resp));
+  }
+  function dayName(s) { const t0 = todayISO(); const d = parse(s); const base = DIAS[d.getDay()] + " " + d.getDate() + " " + MESES[d.getMonth()].slice(0, 3); return s === t0 ? "Hoy · " + base : s === iso(addDays(new Date(), 1)) ? "Mañana · " + base : base[0].toUpperCase() + base.slice(1); }
+  function renderAgenda() {
+    const box = $("v-agenda"), c = iso(S.cursor), t0 = todayISO(), wk = monday(S.cursor);
+    const wkItems = instancesIn(iso(wk), iso(addDays(wk, 6)));
+    const strip = el("div", { class: "strip" },
+      el("button", { type: "button", class: "sbtn", "aria-label": "Semana anterior", onclick: () => { S.cursor = addDays(S.cursor, -7); render(); } }, "‹"),
+      [...Array(7)].map((_, i) => { const d = addDays(wk, i), s = iso(d);
+        return el("button", { type: "button", class: "sd" + (s === c ? " sel" : "") + (s === t0 ? " today" : "") + (festivo(s) ? " fest" : ""), "aria-label": dayName(s), onclick: () => { S.cursor = d; render(); } },
+          el("span", { text: "LMXJVSD"[i] }), el("b", { text: String(d.getDate()) }), el("i", { class: wkItems.some((x) => x.fecha === s) ? "has" : "" })); }),
+      el("button", { type: "button", class: "sbtn", "aria-label": "Semana siguiente", onclick: () => { S.cursor = addDays(S.cursor, 7); render(); } }, "›"));
+    const list = el("div", { class: "ag" });
+    if (!S.loaded) list.append(el("div", { class: "empty", text: S.db === false ? "Sin conexión con la base de datos." : "Cargando…" }));
+    else {
+      if (c === t0) { const late = pendingTasks().filter(isLate).sort((a, b) => sortKey(a).localeCompare(sortKey(b))); const ll = liqLate(); if (late.length || ll.length) list.append(el("div", { class: "ag-day" }, el("div", { class: "ag-h late" }, "Vencidas · " + (late.length + ll.reduce((a, o) => a + o.n, 0))), late.map(agTask), ll.map((o) => agLiq({ contrato: o.c.id, fecha: "" }, o.n)))); }
+      const end = iso(addDays(S.cursor, 13)), range = instancesIn(c, end), lqa = liqDue(c, end);
+      for (let i = 0; i < 14; i++) {
+        const s = iso(addDays(S.cursor, i)), f = festivo(s);
+        const ms = range.filter((x) => x.fecha === s && x.tipo === "reunion").sort((a, b) => (a.inicio || "").localeCompare(b.inicio || ""));
+        const ts = range.filter((x) => x.fecha === s && x.tipo === "tarea" && !(s < t0 && c === t0)).sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+        const day = el("div", { class: "ag-day" }, el("div", { class: "ag-h" }, el("span", { text: dayName(s) }), f ? el("em", { text: f }) : null));
+        const lq = lqa.filter((x) => x.fecha === s && !(s < t0 && c === t0));
+        if (!ms.length && !ts.length && !lq.length) day.append(el("div", { class: "ag-free", text: i === 0 ? "Nada programado. Toca + para agregar." : "Libre" }));
+        ms.forEach((x) => day.append(agMeet(x))); ts.forEach((x) => day.append(agTask(x))); lq.forEach((x) => day.append(agLiq(x)));
+        list.append(day);
+      }
+    }
+    box.replaceChildren(strip, list);
+  }
+  let tx0 = null, ty0 = null;
+  $("v-agenda").addEventListener("touchstart", (e) => { const t = e.touches[0]; tx0 = t.clientX; ty0 = t.clientY; }, { passive: true });
+  $("v-agenda").addEventListener("touchend", (e) => { if (tx0 == null) return; const t = e.changedTouches[0], dx = t.clientX - tx0, dy = t.clientY - ty0; tx0 = null; if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) shift(dx < 0 ? 1 : -1); }, { passive: true });
+  $("btn-menu").onclick = () => document.body.classList.add("drawer");
+  $("backdrop").onclick = () => document.body.classList.remove("drawer");
+  $("fab").onclick = () => openNew({ tipo: "tarea", fecha: S.view === "agenda" ? iso(S.cursor) : "" });
+  if (isMobile()) S.view = "agenda";
+
+  // ---------- contratos ----------
+  let draftC = [], openPal = null;
+  function renderCM() {
+    const box = $("cm-list"); box.replaceChildren();
+    draftC.forEach((c, i) => {
+      const row = el("div", { class: "cm-row" + (c.archivado ? " arch" : "") },
+        el("button", { type: "button", class: "swatch", style: "--c:" + c.color, "aria-label": "Cambiar color de " + (c.nombre || "contrato"), onclick: () => { openPal = openPal === i ? null : i; renderCM(); } }),
+        el("input", { value: c.codigo, maxlength: "40", placeholder: "IDU-0000", "aria-label": "Código", disabled: S.readOnly, oninput: (e) => (c.codigo = e.target.value) }),
+        el("input", { value: c.nombre, maxlength: "60", placeholder: "Nombre corto", "aria-label": "Nombre", disabled: S.readOnly, oninput: (e) => (c.nombre = e.target.value) }),
+        el("button", { type: "button", class: "btn", style: "padding:6px 10px;font-size:11.5px", disabled: S.readOnly, text: c.archivado ? "Reactivar" : "Archivar", onclick: () => { c.archivado = !c.archivado; renderCM(); } }));
+      box.append(row);
+      if (openPal === i) box.append(el("div", { class: "palette" }, PALETTE.map((p) => el("button", { type: "button", style: "--c:" + p, "aria-label": "Color " + p, "aria-pressed": String(p === c.color), disabled: S.readOnly, onclick: () => { c.color = p; openPal = null; renderCM(); } }))));
+    });
+  }
+  $("btn-contracts").onclick = () => { if (!S.db) { toast("Sin conexión."); return; } draftC = S.contracts.map((c) => Object.assign({}, c)); openPal = null; $("c-err").hidden = true; $("cm-add").hidden = S.readOnly; renderCM(); $("dlg-c").showModal(); };
+  $("cm-add").onclick = () => { const used = draftC.map((c) => c.color); draftC.push({ id: "c" + Date.now().toString(36), codigo: "", nombre: "", color: PALETTE.find((p) => !used.includes(p)) || PALETTE[draftC.length % PALETTE.length], archivado: false }); openPal = null; renderCM(); const ins = $("cm-list").querySelectorAll(".cm-row:last-child input"); if (ins[0]) ins[0].focus(); };
+  $("c-x").onclick = () => $("dlg-c").close(); $("c-cancel").onclick = () => $("dlg-c").close();
+  $("form-c").addEventListener("submit", async (ev) => {
+    ev.preventDefault(); if (S.readOnly) { $("dlg-c").close(); return; }
+    const lista = draftC.map((c) => ({ id: c.id, codigo: c.codigo.trim(), nombre: c.nombre.trim(), color: c.color, archivado: !!c.archivado })).filter((c) => c.codigo || c.nombre);
+    if (lista.some((c) => !c.nombre)) { $("c-err").textContent = "Cada contrato necesita un nombre corto."; $("c-err").hidden = false; return; }
+    const before = JSON.stringify(S.contracts.map((c) => [c.id, c.codigo, c.nombre, c.color, !!c.archivado]));
+    const keep = (c) => Object.assign({}, S.contracts.find((o) => o.id === c.id) || {}, c);
+    const lista2 = lista.map(keep);
+    try { await S.db.doc("config/contratos").set({ lista: lista2 }); if (JSON.stringify(lista2.map((c) => [c.id, c.codigo, c.nombre, c.color, !!c.archivado])) !== before) log("contrato", { tipo: "contrato", titulo: "Lista de contratos", id: "config" }, lista2.length + " contratos · " + lista2.filter((c) => c.archivado).length + " archivados"); $("dlg-c").close(); toast("Contratos guardados"); } catch (e) { $("c-err").textContent = writeErr(e); $("c-err").hidden = false; }
+  });
+  $("c-all").onclick = () => { S.hideC = {}; renderSideCounts(); renderView(); };
+
+  render(); renderQuick(); connect();
+};
+</script>
+<script>
+/* Conexión del tablero con Supabase: inicio de sesión por código al correo y una capa de datos
+   con la misma forma que usaba la versión de Claude (colecciones, documentos y cambios en vivo). */
+(() => {
+  const SUPABASE_URL = "https://unfvthqaobkxhmitawvl.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_02rLX9sbBEqn6EeRsyX6oQ_p7GaBpO-";
+  const TABLAS = ["agenda", "config", "liq", "liqmod"];
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  const $ = (id) => document.getElementById(id);
+  let yo = null; // { email, rol, nombre }
+  let miembros = [];
+
+  // ---------- errores con los códigos que entiende el tablero ----------
+  const err = (e) => {
+    const m = (e && (e.message || e.details)) || "";
+    if (e && (e.code === "42501" || /row-level security|permission denied/i.test(m))) return { code: "invalid_argument", message: m };
+    return { code: "unavailable", message: m || "Error de conexión" };
+  };
+  const ok = (r) => { if (r.error) throw err(r.error); return r.data; };
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+
+  // ---------- cambios en vivo: un canal por tabla ----------
+  const oyentes = {};
+  function escuchar(tabla, fn) {
+    if (!oyentes[tabla]) {
+      oyentes[tabla] = new Set();
+      sb.channel("cambios-" + tabla).on("postgres_changes", { event: "*", schema: "public", table: tabla }, () => oyentes[tabla].forEach((f) => f())).subscribe();
+    }
+    oyentes[tabla].add(fn);
+    return () => oyentes[tabla].delete(fn);
+  }
+  const demorar = (fn, ms) => { let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; };
+  const snapDocs = (rows) => ({ docs: rows.map((r) => ({ id: r.id, data: () => r.data })), size: rows.length, empty: !rows.length });
+
+  // ---------- historial (solo agrega; solo el coordinador lo lee) ----------
+  function historialQuery() {
+    return {
+      orderBy() { return this; }, limit() { return this; },
+      onSnapshot(next) {
+        if (!yo || yo.rol !== "coordinador") { next({ docs: [] }); return () => {}; }
+        const cargar = async () => {
+          const r = await sb.from("historial").select("t,email,data").order("t", { ascending: false }).limit(400);
+          if (r.error) return;
+          next({ docs: r.data.map((x, i) => ({ id: String(i), data: () => Object.assign({}, x.data, { t: x.data.t || x.t, uid: x.email }) })) });
+        };
+        cargar(); return escuchar("historial", demorar(cargar, 300));
+      },
+      async add(data) { const d = Object.assign({}, data); delete d.uid; ok(await sb.from("historial").insert({ data: d })); return { id: "" }; }
+    };
+  }
+
+  // ---------- base de datos con la forma colección / documento ----------
+  function coleccion(nombre) {
+    if (nombre === "historial") return { limit() { return this; }, onSnapshot(next) { next({ docs: yo && yo.rol === "coordinador" ? [{ id: "todos", data: () => ({}) }] : [] }); return () => {}; } };
+    if (nombre.startsWith("historial/")) return historialQuery();
+    const tabla = nombre;
+    if (!TABLAS.includes(tabla)) throw { code: "invalid_argument", message: "Colección desconocida: " + nombre };
+    const q = {
+      limit() { return q; }, orderBy() { return q; }, where() { return q; },
+      async get() { return snapDocs(ok(await sb.from(tabla).select("id,data").limit(5000))); },
+      onSnapshot(next, onErr) {
+        let vivo = true;
+        const cargar = async () => { const r = await sb.from(tabla).select("id,data").limit(5000); if (!vivo) return; if (r.error) { if (onErr) onErr(err(r.error)); return; } next(snapDocs(r.data)); };
+        cargar(); const off = escuchar(tabla, demorar(cargar, 250));
+        return () => { vivo = false; off(); };
+      },
+      async add(data) { const id = newId(); ok(await sb.from(tabla).insert({ id, data })); return { id }; },
+      doc(id) { return documento(tabla + "/" + (id || newId())); }
+    };
+    return q;
+  }
+  function documento(ruta) {
+    const [tabla, id] = ruta.split("/");
+    if (tabla === "historial") return { async set() {}, async update() {}, async delete() {}, async get() { return { exists: false, data: () => undefined }; }, onSnapshot(n) { n({ exists: false, data: () => undefined }); return () => {}; } };
+    const leer = async () => { const r = ok(await sb.from(tabla).select("id,data").eq("id", id).maybeSingle()); return { id, exists: !!r, data: () => (r ? r.data : undefined) }; };
+    return {
+      id, path: ruta, get: leer,
+      async set(data) { ok(await sb.from(tabla).upsert({ id, data, actualizado: new Date().toISOString() })); },
+      async update(patch) { const cur = await leer(); if (!cur.exists) throw { code: "invalid_argument", message: "No existe" }; ok(await sb.from(tabla).update({ data: Object.assign({}, cur.data(), patch), actualizado: new Date().toISOString() }).eq("id", id)); },
+      async delete() { ok(await sb.from(tabla).delete().eq("id", id)); },
+      onSnapshot(next, onErr) {
+        let vivo = true;
+        const cargar = async () => { try { const s = await leer(); if (vivo) next(s); } catch (e) { if (onErr) onErr(e); } };
+        cargar(); const off = escuchar(tabla, demorar(cargar, 250));
+        return () => { vivo = false; off(); };
+      },
+      collection(sub) { return coleccion(tabla + "/" + id + "/" + sub); }
+    };
+  }
+  const db = { collection: coleccion, doc: documento };
+
+  // ---------- usuario ----------
+  const user = {
+    async id() { return yo.email; },
+    async isOwner() { return yo.rol === "coordinador"; },
+    async canEdit() { return true; },
+    async can() { return true; },
+    async me() { return { id: yo.email, name: yo.nombre || yo.email, email: yo.email, isOwner: yo.rol === "coordinador", canEdit: true }; },
+    async profiles(ids) { const o = {}; [].concat(ids).forEach((e) => { const m = miembros.find((x) => x.email === e); o[e] = { id: e, name: (m && m.nombre) || e, email: e }; }); return o; }
+  };
+
+  // ---------- descargas (CSV) ----------
+  const downloads = {
+    async save({ filename, data }) {
+      const blob = data instanceof Blob ? data : new Blob([data], { type: filename.endsWith(".csv") ? "text/csv;charset=utf-8" : "application/octet-stream" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; document.body.append(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      return { status: "saved" };
+    }
+  };
+  window.claude = { use: async (n) => n === "db" ? db : n === "user" ? user : n === "downloads" ? downloads : null };
+
+  // ---------- inicio de sesión ----------
+  let correo = "";
+  const msg = (t, malo) => { const m = $("lg-msg"); m.textContent = t || ""; m.classList.toggle("bad", !!malo); };
+  const paso = (n) => { $("lg-1").hidden = n !== 1; $("lg-2").hidden = n !== 2; $("lg-3").hidden = n !== 3; };
+  $("lg-form1").addEventListener("submit", async (e) => {
+    e.preventDefault(); correo = $("lg-email").value.trim().toLowerCase(); if (!correo) return;
+    const b = $("lg-send"); b.disabled = true; msg("Verificando…");
+    try {
+      const aut = await sb.rpc("correo_autorizado", { correo });
+      if (aut.error) throw aut.error;
+      if (!aut.data) { msg("Este correo no tiene acceso. Pídele al coordinador que lo agregue.", true); return; }
+      const r = await sb.auth.signInWithOtp({ email: correo, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
+      if (r.error) throw r.error;
+      $("lg-sent").textContent = correo; paso(2); msg(""); setTimeout(() => $("lg-code").focus(), 50);
+    } catch (x) { msg(/rate|limit|seconds/i.test(x.message || "") ? "Se pidieron muchos códigos seguidos. Espera unos minutos e intenta de nuevo." : "No se pudo enviar el código: " + (x.message || "error de conexión"), true); }
+    finally { b.disabled = false; }
+  });
+  $("lg-form2").addEventListener("submit", async (e) => {
+    e.preventDefault(); const token = $("lg-code").value.replace(/\D/g, ""); if (token.length < 6) { msg("Escribe el código completo que llegó al correo.", true); return; }
+    const b = $("lg-enter"); b.disabled = true; msg("Entrando…");
+    const r = await sb.auth.verifyOtp({ email: correo, token, type: "email" });
+    b.disabled = false;
+    if (r.error) { msg("El código no es válido o ya venció. Pide uno nuevo.", true); return; }
+    msg(""); arrancar(r.data.session);
+  });
+  $("lg-back").onclick = () => { paso(1); msg(""); };
+  $("lg-out").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+  let arrancado = false;
+  async function arrancar(session) {
+    if (arrancado || !session) return;
+    const email = (session.user.email || "").toLowerCase();
+    const r = await sb.from("miembros").select("email,rol,nombre");
+    miembros = r.data || [];
+    yo = miembros.find((m) => m.email === email) || null;
+    if (!yo) { paso(3); $("lg-who").textContent = email; return; }
+    arrancado = true;
+    $("login").hidden = true; $("app-root").hidden = false;
+    window.startApp();
+    extras();
+  }
+  sb.auth.getSession().then(({ data }) => { if (data.session) arrancar(data.session); else { paso(1); $("login").hidden = false; } });
+  sb.auth.onAuthStateChange((ev, session) => { if (ev === "SIGNED_IN" && session) arrancar(session); });
+
+  // ---------- extras de la versión web: sesión y accesos ----------
+  function extras() {
+    const foot = document.querySelector(".side-foot"); if (!foot) return;
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera");
+    const out = document.createElement("button"); out.type = "button"; out.className = "btn"; out.textContent = "Cerrar sesión";
+    out.onclick = async () => { await sb.auth.signOut(); location.reload(); };
+    if (yo.rol === "coordinador") { const acc = document.createElement("button"); acc.type = "button"; acc.className = "btn"; acc.textContent = "Accesos"; acc.onclick = abrirAccesos; foot.append(acc); }
+    foot.append(out, who);
+  }
+  async function abrirAccesos() {
+    const d = $("dlg-acc"); await pintarAccesos(); $("acc-err").hidden = true; d.showModal();
+  }
+  async function pintarAccesos() {
+    const r = await sb.from("miembros").select("email,rol,nombre").order("rol", { ascending: true }); miembros = r.data || miembros;
+    const box = $("acc-list"); box.replaceChildren();
+    miembros.forEach((m) => {
+      const row = document.createElement("div"); row.className = "acc-row";
+      const t = document.createElement("div"); t.innerHTML = "<b></b><small></small>"; t.querySelector("b").textContent = m.email; t.querySelector("small").textContent = m.rol === "coordinador" ? "Coordinador · ve el historial" : "Ingeniera · no ve el historial";
+      row.append(t);
+      if (m.email !== yo.email) { const del = document.createElement("button"); del.type = "button"; del.className = "btn danger"; del.textContent = "Quitar acceso";
+        del.onclick = async () => { if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "Confirmar"; return; } const x = await sb.from("miembros").delete().eq("email", m.email); if (x.error) return accErr(x.error); await sb.from("historial").insert({ data: { accion: "contrato", tipo: "contrato", titulo: "Accesos", nota: "Quitó el acceso a " + m.email, t: new Date().toISOString() } }); pintarAccesos(); };
+        row.append(del); }
+      box.append(row);
+    });
+  }
+  const accErr = (e) => { const x = $("acc-err"); x.textContent = "No se pudo guardar: " + (e.message || "error"); x.hidden = false; };
+  $("acc-form").addEventListener("submit", async (e) => {
+    e.preventDefault(); const email = $("acc-email").value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { accErr({ message: "escribe un correo válido" }); return; }
+    const x = await sb.from("miembros").insert({ email, rol: "ingeniera", nombre: $("acc-name").value.trim() || null }); if (x.error) return accErr(x.error);
+    await sb.from("historial").insert({ data: { accion: "contrato", tipo: "contrato", titulo: "Accesos", nota: "Dio acceso a " + email + " (ingeniera)", t: new Date().toISOString() } });
+    $("acc-email").value = ""; $("acc-name").value = ""; $("acc-err").hidden = true; pintarAccesos();
+  });
+  $("acc-close").onclick = () => $("dlg-acc").close();
+})();
+
+</script>
+</body>
+</html>
