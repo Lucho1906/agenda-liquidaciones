@@ -360,6 +360,8 @@ dialog::backdrop { background: rgb(0 0 0 / .55); }
 .lq-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .lq-filters input[type="search"] { flex: 1 1 200px; min-width: 0; border: 1px solid var(--line); background: var(--side); border-radius: 9px; padding: 8px 10px; }
 .lq-filters label { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); cursor: pointer; }
+.lq-flt { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--muted); background: color-mix(in srgb, var(--accent) 8%, var(--side)); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 10px; padding: 8px 12px; }
+.lq-flt b { color: var(--ink); }
 .lq-imp { background: color-mix(in srgb, var(--warn) 9%, var(--side)); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
 .lq-imp b { color: var(--warn); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 details.lq-dt { background: var(--side); border-radius: 12px; padding: 10px 12px; }
@@ -1465,7 +1467,8 @@ window.startApp = () => {
     parts.push(el("div", { class: "lq-stats" },
       el("div", { class: "lq-pct", style: colorVars(c.color) }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales aprobados por IDU" + (st.late ? " · " : "") }, st.late ? el("span", { class: "late", text: st.late + " con plazo vencido" }) : null)),
       stackBar(st.cnt),
-      el("div", { class: "est-chips" }, EST.map((e) => el("button", { type: "button", "aria-pressed": String(L.est === e), onclick: () => { L.est = L.est === e ? "" : e; renderLiq(); } }, el("i", { style: "background:" + EST_C[e] }), EST_L[e] + " · " + st.cnt[e])))));
+      el("div", { class: "est-chips" }, EST.map((e) => el("button", { type: "button", "aria-pressed": String(L.est === e), onclick: () => { L.est = L.est === e ? "" : e; renderLiq(); } }, el("i", { style: "background:" + EST_C[e] }), EST_L[e] + " · " + st.cnt[e]))),
+      el("span", { class: "muted", text: "Los números cuentan los requisitos principales de todo el contrato. Toca un estado para filtrar el listado." })));
     const imp = items.filter((x) => x.n === "x");
     if (imp.length) parts.push(el("div", { class: "lq-imp" }, el("b", { text: "Importantes" }), imp.map((x) => el("span", { text: x.q + (x.o ? " — " + x.o : "") }))));
     const kv = (rows) => el("div", { class: "kv" }, rows.flatMap((r) => r.length < 2 ? [el("span", { class: "hd", text: String(r[0]) })] : [el("span", { text: String(r[0]) }), el("span", { text: money(r[1]) })]));
@@ -1481,6 +1484,12 @@ window.startApp = () => {
       L.plazo ? el("button", { type: "button", class: "btn", style: "padding:5px 10px;font-size:12px", onclick: () => { L.plazo = ""; L.pend = false; renderLiq(); } }, "Plazo " + fmtD(L.plazo) + " ✕") : null));
     parts.push(el("div", { class: "chips" }, el("button", { type: "button", "aria-pressed": String(!L.area), text: "Todas las áreas", onclick: () => { L.area = ""; renderLiq(); } }),
       areas.map((a) => el("button", { type: "button", "aria-pressed": String(L.area === a), text: a[0] + a.slice(1).toLowerCase(), onclick: () => { L.area = L.area === a ? "" : a; renderLiq(); } }))));
+    const flt = [L.plazo && "plazo " + fmtD(L.plazo), L.est && EST_L[L.est], L.area && "área " + L.area[0] + L.area.slice(1).toLowerCase(), L.pend && "solo pendientes", L.q && "búsqueda “" + L.q + "”"].filter(Boolean);
+    if (flt.length) {
+      const nP = items.filter((x) => x.n === "p" && liqFilterMatch(x)).length, nE = items.filter((x) => x.n === "e" && liqFilterMatch(x)).length;
+      parts.push(el("div", { class: "lq-flt" }, el("span", null, "Mostrando ", el("b", { text: nP + (nP === 1 ? " requisito principal" : " requisitos principales") + " y " + nE + (nE === 1 ? " entregable" : " entregables") }), " · filtros: " + flt.join(", ")),
+        el("button", { type: "button", class: "btn", style: "padding:5px 10px;font-size:12px", text: "Quitar filtros", onclick: () => { L.plazo = ""; L.est = ""; L.area = ""; L.pend = false; L.q = ""; renderLiq(); } })));
+    }
     parts.push(liqList(c, items));
     box.replaceChildren(el("div", { class: "lq-wrap" }, parts));
   }
