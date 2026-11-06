@@ -1808,18 +1808,39 @@ window.startApp = () => {
     const note = Object.keys(patch).filter((k) => patch[k] !== prev[k]).map((k) => (lbl[k] || k) + ": " + val(k, prev[k] || "—") + " → " + val(k, patch[k])).join(" · ");
     try { await S.db.doc("config/contratos").set({ lista }); if (note) log("contrato", { tipo: "contrato", titulo: prev.codigo + " · " + prev.nombre, id: cid }, note); toast("Contrato actualizado"); } catch (e) { toast(writeErr(e)); }
   }
-  async function saveLiq(c, x, patch) {
+  async function saveLiq(c, x, patch, silencioso) {
     if (S.readOnly || !S.db) return;
     const key = c.id + "__" + x.r, prev = S.liqmod[key] || {};
     const data = Object.assign({ cid: c.id, row: x.r, s: x.s || "", pl: x.pl || "", rp: x.rp || "", ri: x.ri || "", o: x.o || "", oculto: !!x.oculto },
       x.nuevo ? { nuevo: true, despues: prev.despues || "", n: x.n, et: x.et || "", a: x.a || "", q: x.q, creada: prev.creada || prev.t || "" } : {}, patch, { t: new Date().toISOString(), uid: S.uid || "" });
+    // Un entregable que se deja a mano por detrás de su principal queda como excepción (no lo arrastran cambios posteriores)
+    if (x.n === "e" && patch.s && x.p) { const pr = annotate(liqItems(c.id)).find((y) => y.r === x.p); data.excepcion = !!pr && EST.indexOf(patch.s) < EST.indexOf(pr.s); }
+    else if (prev.excepcion != null && data.excepcion == null) data.excepcion = prev.excepcion;
     const parts = [c.codigo];
     if (patch.s && patch.s !== x.s) parts.push(EST_L[patch.s] || patch.s);
     if (patch.pl != null && patch.pl !== (x.pl || "")) parts.push(patch.pl ? "plazo " + fmtD(patch.pl) : "sin plazo");
     if (patch.o != null && patch.o !== (x.o || "")) parts.push(patch.o.slice(0, 160));
     if (patch.oculto != null && patch.oculto !== !!x.oculto) parts.push(patch.oculto ? "marcado como no aplica" : "vuelve a aplicar");
-    try { await S.db.doc("liqmod/" + key).set(data); if (parts.length > 1) log("liq", { tipo: "liq", titulo: x.q, id: key }, parts.join(" · ")); toast("Guardado"); }
+    try {
+      await S.db.doc("liqmod/" + key).set(data);
+      if (parts.length > 1) log("liq", { tipo: "liq", titulo: x.q, id: key }, parts.join(" · "));
+      // Si avanza un requisito principal, sus entregables que estén más atrás avanzan al mismo estado.
+      const n = (x.n === "p" && patch.s && patch.s !== x.s) ? await arrastrarEntregables(c, x, patch.s) : 0;
+      if (!silencioso) toast(n ? "Guardado · también " + (n === 1 ? "1 entregable pasó" : n + " entregables pasaron") + " a «" + (EST_L[patch.s] || patch.s) + "»" : "Guardado");
+    }
     catch (e) { toast(writeErr(e)); render(); }
+  }
+  async function arrastrarEntregables(c, p, nuevo) {
+    const rank = (s) => EST.indexOf(s), rN = rank(nuevo); if (rN <= 0) return 0;
+    const hijos = annotate(liqItems(c.id)).filter((y) => y.n === "e" && y.p === p.r && !y.oculto && rank(y.s) < rN && !(S.liqmod[c.id + "__" + y.r] || {}).excepcion);
+    for (const y of hijos) {
+      const k = c.id + "__" + y.r, pv = S.liqmod[k] || {};
+      const d = Object.assign({ cid: c.id, row: y.r, s: nuevo, pl: y.pl || "", rp: y.rp || "", ri: y.ri || "", o: y.o || "", oculto: !!y.oculto },
+        y.nuevo ? { nuevo: true, despues: pv.despues || "", n: "e", et: y.et || "", a: y.a || "", q: y.q, creada: pv.creada || pv.t || "" } : {}, { t: new Date().toISOString(), uid: S.uid || "", arrastre: p.r });
+      await S.db.doc("liqmod/" + k).set(d);
+    }
+    if (hijos.length) log("liq", { tipo: "liq", titulo: p.q, id: c.id + "__" + p.r }, c.codigo + " · " + hijos.length + (hijos.length === 1 ? " entregable pasó" : " entregables pasaron") + " automáticamente a " + (EST_L[nuevo] || nuevo) + ": " + hijos.map((y) => y.q).join(", ").slice(0, 300));
+    return hijos.length;
   }
   async function addLiqItem(c, p, anchor, text) {
     if (S.readOnly || !S.db || !text.trim()) return;
@@ -1977,7 +1998,7 @@ window.startApp = () => {
       x.n === "p" && kids && kids.length ? el("button", { type: "button", class: "chev", "aria-expanded": String(!!open), "aria-label": (open ? "Ocultar" : "Ver") + " entregables", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, open ? "▾" : "▸") : el("span", { class: "chev" }),
       el("div", { style: "min-width:0" },
         el("button", { type: "button", class: "lq-q", text: x.q, title: "Editar estado, plazo, responsable y observaciones", onclick: () => { L.edit = L.edit === x.r ? null : x.r; renderLiq(); } }),
-        el("div", { class: "lq-m" }, ctx ? el("span", { class: "ctx-tag", text: "contexto: no cumple el filtro, sus entregables sí" }) : null, x.a ? el("span", { class: "tag", text: x.a }) : null,
+        el("div", { class: "lq-m" }, ctx ? el("span", { class: "ctx-tag", text: "contexto: no cumple el filtro, sus entregables sí" }) : null, x.n === "e" && (S.liqmod[c.id + "__" + x.r] || {}).excepcion ? el("span", { class: "ctx-tag", title: "Lo dejaste a mano por detrás del requisito principal; los cambios del principal no lo mueven", text: "excepción: no sigue al principal" }) : null, x.a ? el("span", { class: "tag", text: x.a }) : null,
           kd && kd.length ? el("button", { type: "button", class: "lq-tog", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, (open ? "Ocultar entregables" : "Ver entregables") + " · " + kd.filter((k) => cerrado(k.s)).length + "/" + kd.length + " cerrados" + (filtering && kids.filter((k) => liqFilterMatch(k)).length !== kd.length ? " · " + kids.filter((k) => liqFilterMatch(k)).length + " coinciden" : "")) : null,
           x.rp ? el("span", { text: x.rp }) : null,
           x.pl ? el("span", { class: late ? "late" : "", text: (late ? "Venció " : "Plazo ") + fmtD(x.pl) }) : (x.plt ? el("span", { text: x.plt }) : null),
