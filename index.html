@@ -360,6 +360,8 @@ dialog::backdrop { background: rgb(0 0 0 / .55); }
 .est-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .est-legend b { color: var(--ink); font-weight: 600; }
 .est-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.lq-tog { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; color: var(--accent); font-size: 11px; cursor: pointer; }
+.lq-tog:hover { border-color: var(--accent); }
 .lq-fbox { display: flex; flex-direction: column; gap: 12px; background: var(--side); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
 .lq-views { display: flex; flex-wrap: wrap; gap: 4px; background: var(--bg); border-radius: 10px; padding: 4px; align-self: flex-start; max-width: 100%; }
 .lq-views button { border: 0; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 8px; font-size: 12.5px; }
@@ -1306,7 +1308,7 @@ window.startApp = () => {
   const FASES = { liquidacion: "En liquidación", ejecucion: "En ejecución", garantias: "En garantías", definir: "Por definir" };
   const TIPOS = { construccion: "Construcción", conservacion: "Conservación", otro: "Otro" };
   const DONE_EST = "APROBADO POR IDU";
-  const L = { sel: null, area: "", est: "", q: "", vista: "", plazo: "", open: {}, edit: null, add: null, showHidden: false };
+  const L = { sel: null, area: "", est: "", q: "", vista: "", expandAll: false, plazo: "", open: {}, edit: null, add: null, showHidden: false };
   S.liq = {}; S.liqmod = {};
   const fmtDY = (s) => { const d = parse(s); return d.getDate() + " " + MESES[d.getMonth()].slice(0, 3) + " " + d.getFullYear(); };
   const money = (v) => typeof v === "number" ? (Math.abs(v) >= 1e6 ? new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(v) : new Intl.NumberFormat("es-CO").format(v)) : String(v ?? "");
@@ -1362,7 +1364,7 @@ window.startApp = () => {
     return out;
   }
   function liqLate() { const t0 = todayISO(); return S.contracts.filter((c) => !S.hideC[c.id] && S.liq[c.id]).map((c) => ({ c, n: liqItems(c.id).filter((x) => !x.oculto && x.s !== DONE_EST && x.pl && x.pl < t0 && (x.n === "p" || x.n === "e")).length })).filter((o) => o.n); }
-  function openLiq(cid, plazo) { L.sel = cid; L.plazo = plazo || ""; L.area = ""; L.est = ""; L.q = ""; L.vista = plazo ? "pend" : ""; L.edit = null; setView("liq"); window.scrollTo(0, 0); }
+  function openLiq(cid, plazo) { L.sel = cid; L.plazo = plazo || ""; L.area = ""; L.est = ""; L.q = ""; L.vista = plazo ? "pend" : ""; L.edit = null; L.open = {}; L.expandAll = !!plazo; setView("liq"); window.scrollTo(0, 0); }
   function liqChip(x) {
     return el("button", { type: "button", class: "chip" + (x.fecha < todayISO() ? " late" : ""), style: varsFor(x), title: "Plazos de liquidación\n" + x.titulo, onclick: (e) => { e.stopPropagation(); openLiq(x.contrato, x.fecha); } },
       el("span", { class: "lq", text: "§" }), el("span", { class: "tx", style: "flex:1", text: x.titulo }));
@@ -1441,6 +1443,7 @@ window.startApp = () => {
       el("span", { class: "muted" + (f === "ejecucion" && c.fterm && daysBetween(t0, c.fterm) <= 30 ? " late" : ""), text: line }));
   }
   function fld(label, ctrl) { return el("div", { class: "field" }, el("label", { text: label }), ctrl); }
+  const isOpen = (r) => L.open[r] != null ? L.open[r] : (L.expandAll || !!L.q);
   function liqFilterMatch(x) {
     if (!L.showHidden && x.oculto) return false;
     if (L.area && x.a !== L.area) return false;
@@ -1504,6 +1507,9 @@ window.startApp = () => {
       el("div", { class: "lq-fsum" },
         el("span", null, "Mostrando ", el("b", { text: nP + " de " + total }), " requisitos principales" + (nE ? " y " + nE + (nE === 1 ? " entregable" : " entregables") : "") + (activos.length ? " · " + activos.join(" · ") : "")),
         el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;align-items:center" },
+          el("div", { class: "lq-views", role: "group", "aria-label": "Nivel de detalle", style: "padding:3px" },
+            el("button", { type: "button", "aria-pressed": String(!L.expandAll), onclick: () => { L.expandAll = false; L.open = {}; renderLiq(); } }, "Solo principales"),
+            el("button", { type: "button", "aria-pressed": String(L.expandAll), onclick: () => { L.expandAll = true; L.open = {}; renderLiq(); } }, "Con entregables")),
           hiddenN ? el("label", null, el("input", { type: "checkbox", checked: L.showHidden, onchange: (e) => { L.showHidden = e.target.checked; renderLiq(); } }), " Ver los que no aplican (" + hiddenN + ")") : null,
           activos.length ? el("button", { type: "button", class: "btn", style: "padding:5px 10px;font-size:12px", text: "Quitar filtros", onclick: () => { L.plazo = ""; L.est = ""; L.area = ""; L.vista = ""; L.q = ""; renderLiq(); } }) : null))));
     parts.push(liqList(c, items));
@@ -1520,7 +1526,7 @@ window.startApp = () => {
       if (x.n === "x") return;
       if (x.n === "g") { if (!filtering || grpHas(x.r)) { if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } list.append(el("div", { class: "lq-g" }, el("span", { text: x.q }), estSel(c, x))); } return; }
       if (x.n === "p") { if (!visP.has(x.r)) return; if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } shown++; list.append(liqRow(c, x, kids[x.r] || [], filtering)); if (L.edit === x.r) list.append(liqEditor(c, x)); return; }
-      if (x.n === "e") { const open = filtering || L.open[x.p]; if (!x.p) { if (!visE.has(x.r)) return; } else if (!open || !visE.has(x.r)) return; shown++; list.append(liqRow(c, x, null, filtering)); if (L.edit === x.r) list.append(liqEditor(c, x));
+      if (x.n === "e") { const open = isOpen(x.p); if (!x.p) { if (!visE.has(x.r)) return; } else if (!open || !visE.has(x.r)) return; shown++; list.append(liqRow(c, x, null, filtering)); if (L.edit === x.r) list.append(liqEditor(c, x));
         const sib = kids[x.p] || []; if (L.add === x.p && sib[sib.length - 1] === x) list.append(addRow(c, items.find((y) => y.r === x.p), x.r)); }
     });
     items.filter((x) => x.n === "p" && L.add === x.r && !(kids[x.r] || []).length).forEach((p) => list.append(addRow(c, p, p.r)));
@@ -1533,14 +1539,14 @@ window.startApp = () => {
       known ? null : el("option", { value: x.s || "", text: x.s || "Sin estado", selected: true }), EST.map((e) => el("option", { value: e, text: EST_L[e], selected: x.s === e })));
   }
   function liqRow(c, x, kids, filtering) {
-    const t0 = todayISO(), late = x.pl && x.pl < t0 && x.s !== DONE_EST, open = filtering || L.open[x.r];
+    const t0 = todayISO(), late = x.pl && x.pl < t0 && x.s !== DONE_EST, open = isOpen(x.r);
     const kd = kids ? kids.filter((k) => !k.oculto) : null;
     return el("div", { class: "lq-r " + x.n + (x.oculto ? " hid" : "") + (x.nuevo ? " nuevo" : "") },
-      x.n === "p" && kids && kids.length ? el("button", { type: "button", class: "chev", "aria-expanded": String(!!open), "aria-label": (open ? "Ocultar" : "Ver") + " entregables", onclick: () => { L.open[x.r] = !L.open[x.r]; renderLiq(); } }, open ? "▾" : "▸") : el("span", { class: "chev" }),
+      x.n === "p" && kids && kids.length ? el("button", { type: "button", class: "chev", "aria-expanded": String(!!open), "aria-label": (open ? "Ocultar" : "Ver") + " entregables", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, open ? "▾" : "▸") : el("span", { class: "chev" }),
       el("div", { style: "min-width:0" },
         el("button", { type: "button", class: "lq-q", text: x.q, title: "Editar estado, plazo, responsable y observaciones", onclick: () => { L.edit = L.edit === x.r ? null : x.r; renderLiq(); } }),
         el("div", { class: "lq-m" }, x.a ? el("span", { class: "tag", text: x.a }) : null,
-          kd && kd.length ? el("span", { text: kd.filter((k) => k.s === DONE_EST).length + "/" + kd.length + " entregables aprobados" }) : null,
+          kd && kd.length ? el("button", { type: "button", class: "lq-tog", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, (open ? "Ocultar entregables" : "Ver entregables") + " · " + kd.filter((k) => k.s === DONE_EST).length + "/" + kd.length + " aprobados" + (filtering && kids.filter((k) => liqFilterMatch(k)).length !== kd.length ? " · " + kids.filter((k) => liqFilterMatch(k)).length + " coinciden" : "")) : null,
           x.rp ? el("span", { text: x.rp }) : null,
           x.pl ? el("span", { class: late ? "late" : "", text: (late ? "Venció " : "Plazo ") + fmtD(x.pl) }) : (x.plt ? el("span", { text: x.plt }) : null),
           x.oculto ? el("span", { text: "No aplica" }) : null,
