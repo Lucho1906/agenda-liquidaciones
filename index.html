@@ -454,10 +454,13 @@ img { max-width: 100%; }
     <h1>Agenda de liquidaciones</h1>
     <div id="lg-1" hidden>
       <form id="lg-form1">
-        <p>Escribe tu correo y te enviamos un código para entrar.</p>
+        <p>Entra con tu correo y contraseña. Si aún no tienes contraseña, pide un enlace de acceso al correo y créala dentro de la agenda.</p>
         <label for="lg-email">Correo</label>
-        <input id="lg-email" type="email" autocomplete="email" inputmode="email" placeholder="nombre@cimelec.co" required>
-        <button class="btn primary" type="submit" id="lg-send">Enviar código</button>
+        <input id="lg-email" type="email" autocomplete="username" inputmode="email" placeholder="nombre@cimelec.co" required>
+        <label for="lg-pass">Contraseña</label>
+        <input id="lg-pass" type="password" autocomplete="current-password" placeholder="Tu contraseña">
+        <button class="btn primary" type="submit" id="lg-login">Entrar</button>
+        <button class="btn" type="button" id="lg-send">No tengo contraseña: enviarme un enlace al correo</button>
       </form>
     </div>
     <div id="lg-2" hidden>
@@ -498,6 +501,16 @@ img { max-width: 100%; }
     </form>
     <div class="err" id="ol-err" hidden></div>
   </div>
+</dialog>
+<dialog id="dlg-pass" aria-labelledby="pass-title">
+  <form class="dlg" id="pass-form" novalidate>
+    <div class="dlg-head"><h2 id="pass-title">Tu contraseña</h2><button class="btn" type="button" id="pass-x" aria-label="Cerrar">✕</button></div>
+    <p class="note-s">Con contraseña entras desde cualquier dispositivo sin esperar el correo. Mínimo 8 caracteres.</p>
+    <div class="field"><label for="pass-1">Nueva contraseña</label><input id="pass-1" type="password" autocomplete="new-password" minlength="8"></div>
+    <div class="field"><label for="pass-2">Repítela</label><input id="pass-2" type="password" autocomplete="new-password" minlength="8"></div>
+    <div class="err" id="pass-err" hidden></div>
+    <div class="dlg-foot"><span></span><div class="right"><button class="btn primary" type="submit">Guardar contraseña</button></div></div>
+  </form>
 </dialog>
 
 <div id="app-root" hidden>
@@ -1851,7 +1864,17 @@ window.startApp = () => {
   const msg = (t, malo) => { const m = $("lg-msg"); m.textContent = t || ""; m.classList.toggle("bad", !!malo); };
   const paso = (n) => { $("lg-1").hidden = n !== 1; $("lg-2").hidden = n !== 2; $("lg-3").hidden = n !== 3; };
   $("lg-form1").addEventListener("submit", async (e) => {
-    e.preventDefault(); correo = $("lg-email").value.trim().toLowerCase(); if (!correo) return;
+    e.preventDefault(); correo = $("lg-email").value.trim().toLowerCase(); const pass = $("lg-pass").value;
+    if (!correo) return;
+    if (!pass) { msg("Escribe tu contraseña, o usa el botón del enlace al correo si aún no tienes una.", true); return; }
+    const b = $("lg-login"); b.disabled = true; msg("Entrando…");
+    const r = await sb.auth.signInWithPassword({ email: correo, password: pass });
+    b.disabled = false;
+    if (r.error) { msg(/invalid/i.test(r.error.message || "") ? "Correo o contraseña incorrectos. Si aún no has creado contraseña, usa el enlace al correo." : "No se pudo entrar: " + r.error.message, true); return; }
+    msg(""); arrancar(r.data.session);
+  });
+  $("lg-send").addEventListener("click", async () => {
+    correo = $("lg-email").value.trim().toLowerCase(); if (!correo) { msg("Escribe tu correo.", true); return; }
     const b = $("lg-send"); b.disabled = true; msg("Verificando…");
     try {
       const aut = await sb.rpc("correo_autorizado", { correo });
@@ -1860,7 +1883,7 @@ window.startApp = () => {
       const r = await sb.auth.signInWithOtp({ email: correo, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
       if (r.error) throw r.error;
       $("lg-sent").textContent = correo; paso(2); msg(""); setTimeout(() => $("lg-code").focus(), 50);
-    } catch (x) { msg(/rate|limit|seconds/i.test(x.message || "") ? "Se pidieron muchos códigos seguidos. Espera unos minutos e intenta de nuevo." : "No se pudo enviar el código: " + (x.message || "error de conexión"), true); }
+    } catch (x) { msg(/rate|limit|seconds/i.test(x.message || "") ? "Se alcanzó el límite de correos por hora. Espera un rato, o entra con tu contraseña si ya la creaste." : "No se pudo enviar el enlace: " + (x.message || "error de conexión"), true); }
     finally { b.disabled = false; }
   });
   $("lg-form2").addEventListener("submit", async (e) => {
@@ -1897,6 +1920,8 @@ window.startApp = () => {
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
     const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera");
+    const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
+    foot.append(pw);
     const out = document.createElement("button"); out.type = "button"; out.className = "btn"; out.textContent = "Cerrar sesión";
     out.onclick = async () => { await sb.auth.signOut(); location.reload(); };
     if (yo.rol === "coordinador") { const acc = document.createElement("button"); acc.type = "button"; acc.className = "btn"; acc.textContent = "Accesos"; acc.onclick = abrirAccesos; foot.append(acc); }
@@ -1970,6 +1995,16 @@ window.startApp = () => {
     $("acc-email").value = ""; $("acc-name").value = ""; $("acc-err").hidden = true; pintarAccesos();
   });
   $("acc-close").onclick = () => $("dlg-acc").close();
+  $("pass-x").onclick = () => $("dlg-pass").close();
+  $("pass-form").addEventListener("submit", async (e) => {
+    e.preventDefault(); const a = $("pass-1").value, b = $("pass-2").value, er = $("pass-err");
+    if (a.length < 8) { er.textContent = "Mínimo 8 caracteres."; er.hidden = false; return; }
+    if (a !== b) { er.textContent = "Las dos contraseñas no coinciden."; er.hidden = false; return; }
+    const r = await sb.auth.updateUser({ password: a });
+    if (r.error) { er.textContent = "No se pudo guardar: " + r.error.message; er.hidden = false; return; }
+    $("dlg-pass").close(); try { localStorage.setItem("tiene-pass", "1"); } catch (_) {}
+    const t = document.getElementById("toast"); if (t) { t.textContent = "Contraseña guardada. Desde ahora entras con correo y contraseña."; t.hidden = false; setTimeout(() => (t.hidden = true), 3500); }
+  });
 })();
 
 </script>
