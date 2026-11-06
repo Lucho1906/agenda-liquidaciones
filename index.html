@@ -251,6 +251,7 @@ button { cursor: pointer; }
 
 /* Diálogo */
 dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--side); color: var(--ink); width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); }
+dialog { overflow: auto; }
 dialog::backdrop { background: rgb(0 0 0 / .55); }
 .dlg { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
 .dlg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -482,6 +483,16 @@ img { max-width: 100%; }
       <div class="field" style="grid-column:1/-1"><button class="btn primary" type="submit">Dar acceso</button></div>
     </form>
     <div class="err" id="acc-err" hidden></div>
+    <h2 style="margin:8px 0 0;font-size:16px">Calendarios de Outlook</h2>
+    <p class="note-s">Las reuniones de estos calendarios aparecen en la agenda de los dos, marcadas como Outlook. El enlace es privado: solo tú lo ves. En Outlook: Configuración → Calendario → Calendarios compartidos → Publicar un calendario → "Puede ver todos los detalles" → copia el enlace ICS.</p>
+    <div class="acc-list" id="ol-list"></div>
+    <form id="ol-form" class="grid2" novalidate>
+      <div class="field"><label for="ol-name">Nombre</label><input id="ol-name" maxlength="60" placeholder="Outlook liq.proyectos"></div>
+      <div class="field"><label for="ol-resp">Responsable por defecto</label><select id="ol-resp"><option value="p1">Coordinador</option><option value="p2">Ingeniera</option><option value="ambos">Ambos</option></select></div>
+      <div class="field" style="grid-column:1/-1"><label for="ol-url">Enlace ICS</label><input id="ol-url" type="url" autocomplete="off" placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics"></div>
+      <div class="field" style="grid-column:1/-1;display:flex;flex-direction:row;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Conectar calendario</button><button class="btn" type="button" id="ol-sync">Sincronizar ahora</button></div>
+    </form>
+    <div class="err" id="ol-err" hidden></div>
   </div>
 </dialog>
 
@@ -717,7 +728,7 @@ window.startApp = () => {
   }
   function pendingTasks() {
     const t0 = todayISO(), from = iso(addDays(new Date(), -14)), horizon = iso(addDays(new Date(), 120)), out = [];
-    visible().filter((x) => x.tipo === "tarea").forEach((x) => {
+    visible().filter((x) => x.tipo === "tarea" && x.origen !== "outlook").forEach((x) => {
       if (!isSeries(x)) { if (x.estado !== "hecha") out.push(x); return; }
       const occ = occurrences(x, from, horizon);
       occ.filter((s) => s < t0 && !doneOn(x, s)).forEach((s) => out.push(inst(x, s)));
@@ -748,7 +759,21 @@ window.startApp = () => {
   let toastT;
   function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2800); }
   const pname = (k) => k === "ambos" ? "Ambos" : (S.people[k] || (k === "p2" ? "Ingeniera" : "Coordinador"));
-  const isLate = (x) => x.tipo === "tarea" && x.estado !== "hecha" && x.fecha && x.fecha < todayISO();
+  const isLate = (x) => x.tipo === "tarea" && x.origen !== "outlook" && x.estado !== "hecha" && x.fecha && x.fecha < todayISO();
+  // Reuniones traídas de Outlook (solo lectura; aquí solo se asigna responsable y contrato)
+  S.base = []; S.ol = []; S.olaj = {};
+  function guessContrato(t) {
+    const f = fold(t || "");
+    for (const c of S.contracts) { const num = (c.codigo.match(/\d{3,4}/) || [])[0]; if (num && new RegExp("(^|\\D)" + num + "(\\D|$)").test(f)) return c.id; }
+    for (const c of S.contracts) { const n = fold(c.nombre); if (n.length >= 4 && f.includes(n)) return c.id; }
+    return "";
+  }
+  function mergeOl() {
+    const ol = S.ol.map(({ id, e }) => { const aj = S.olaj[id] || {}; if (aj.oculto) return null;
+      return { id: "ol:" + id, olid: id, origen: "outlook", tipo: "reunion", titulo: e.titulo || "(Sin asunto)", fecha: e.fecha, inicio: e.todoElDia ? "" : e.inicio, fin: e.todoElDia ? "" : e.fin, todoElDia: !!e.todoElDia,
+        lugar: e.lugar || "", resp: aj.resp || e.respDefecto || "p1", contrato: aj.contrato != null ? aj.contrato : guessContrato(e.titulo + " " + (e.lugar || "")), fuente: e.fuenteNombre || "Outlook", organizador: e.organizador || "", estado: "", notas: "" }; }).filter(Boolean);
+    S.items = S.base.concat(ol);
+  }
   const cOf = (x) => S.contracts.find((c) => c.id === x.contrato) || null;
   const cColor = (x) => { const c = cOf(x); return c ? c.color : NONE; };
   const cLabel = (c) => c ? c.codigo + " · " + c.nombre : "Sin contrato";
@@ -762,7 +787,7 @@ window.startApp = () => {
   const ROLE = { p1: "Coordinador de liquidaciones", p2: "Ingeniera de liquidaciones", ambos: "Coordinador e ingeniera" };
   const pb = (k) => el("span", { class: "pb" + (k === "ambos" ? " both" : ""), title: pname(k) + (pname(k) !== ROLE[k] ? " · " + ROLE[k] : ""), text: badgeText(k) });
   const repMark = (x) => isSeries(x) ? el("span", { class: "rep", title: repLabel(x.rep.freq, (x._series || x).fecha), text: "↻" }) : null;
-  const canDrag = (x) => !S.readOnly && !!S.db && !x._series;
+  const canDrag = (x) => !S.readOnly && !!S.db && !x._series && x.origen !== "outlook";
 
   // ---------- render ----------
   function render() { renderSideCounts(); renderMini(); renderTop(); renderView(); }
@@ -841,7 +866,7 @@ window.startApp = () => {
 
   function taskChip(x) {
     return dragSrc(el("button", { type: "button", class: "chip" + (x.estado === "hecha" ? " done" : "") + (isLate(x) ? " late" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo + (isSeries(x) ? "\n" + repLabel(x.rep.freq, (x._series || x).fecha) : ""), onclick: (e) => { e.stopPropagation(); openItem(x); } },
-      el("span", { class: "bx" }), el("span", { class: "tx", style: "flex:1", text: (x.inicio ? x.inicio + " " : "") + x.titulo }), repMark(x), pb(x.resp)), x);
+      x.tipo === "reunion" ? el("span", { class: "lq", text: "◷" }) : el("span", { class: "bx" }), el("span", { class: "tx", style: "flex:1", text: (x.inicio ? x.inicio + " " : "") + x.titulo }), repMark(x), pb(x.resp)), x);
   }
 
   function layoutDay(meets) {
@@ -899,7 +924,7 @@ window.startApp = () => {
       return dropTarget(el("button", { type: "button", class: "dh" + (s === t0 ? " today" : "") + (f ? " festd" : ""), title: "Agregar tarea el " + fmtD(s), onclick: () => openNew({ tipo: "tarea", fecha: s }) },
         el("span", { class: "dw", text: DOWS[i] }), el("span", { class: "dn", text: String(d.getDate()) }), el("span", { class: "df", text: f || "" })), s); }));
     const allday = el("div", { class: "wk-row" }, el("span", { class: "allday-l", text: "Tareas" }), days.map((d) => { const s = iso(d);
-      return dropTarget(el("div", { class: "allday" }, vis.filter((x) => x.tipo === "tarea" && x.fecha === s).sort((p, q) => sortKey(p).localeCompare(sortKey(q))).map(taskChip), lqd.filter((x) => x.fecha === s).map(liqChip)), s); }));
+      return dropTarget(el("div", { class: "allday" }, vis.filter((x) => (x.tipo === "tarea" || (x.tipo === "reunion" && !x.inicio)) && x.fecha === s).sort((p, q) => sortKey(p).localeCompare(sortKey(q))).map(taskChip), lqd.filter((x) => x.fecha === s).map(liqChip)), s); }));
     const hcol = el("div", { class: "hcol", style: "height:" + ((H1 - H0) * H) + "px" });
     for (let h = H0 + 1; h < H1; h++) hcol.append(el("span", { style: "top:" + ((h - H0) * H) + "px", text: h + ":00" }));
     cols = [];
@@ -915,7 +940,7 @@ window.startApp = () => {
             title: m.titulo + " · " + m.inicio + (m.fin ? "–" + m.fin : "") + "\n" + pname(m.resp) + " · " + cLabel(c) + (isSeries(m) ? "\n" + repLabel(m.rep.freq, m._series.fecha) : (canDrag(m) ? "\nArrastra para mover; estira el borde inferior para cambiar la duración" : "")),
             onclick: (e) => { e.stopPropagation(); if (e.detail === 0) openItem(m); } },
           el("span", { style: "display:flex;gap:6px;align-items:flex-start;justify-content:space-between" }, el("b", { text: m.titulo }), el("span", { style: "display:flex;gap:4px;align-items:center" }, repMark(m), pb(m.resp))),
-          el("i", { text: m.inicio + (m.fin ? " – " + m.fin : "") + (c ? " · " + c.nombre : "") }), m.lugar ? el("i", { text: m.lugar }) : null);
+          el("i", { text: m.inicio + (m.fin ? " – " + m.fin : "") + (c ? " · " + c.nombre : "") + (m.origen === "outlook" ? " · Outlook" : "") }), m.lugar ? el("i", { text: m.lugar }) : null);
         if (canDrag(m)) {
           const rs = el("span", { class: "rs", "aria-hidden": "true" });
           rs.addEventListener("pointerdown", (e) => startDrag(e, m, node, "resize"));
@@ -1014,8 +1039,30 @@ window.startApp = () => {
     xs.forEach((a) => b.append(el("div", { class: "av" }, el("div", { class: "when", text: fmtWhen(a.t) }), el("div", { text: a.texto }))));
   }
 
+  function fillOutlook(x) {
+    S.olEdit = x; S.inst = null; S.editing = null; S.draftAv = [];
+    $("i-resp").replaceChildren(); setTipo("reunion");
+    $("dlg-title").textContent = "Reunión de Outlook";
+    $("i-titulo").value = x.titulo; $("i-resp").value = x.resp;
+    $("i-proy").replaceChildren(el("option", { value: "", text: "Sin contrato" }), ...S.contracts.filter((c) => !c.archivado || c.id === x.contrato).map((c) => el("option", { value: c.id, text: cLabel(c) })));
+    $("i-proy").value = x.contrato || "";
+    $("i-fecha").value = x.fecha; $("i-ini").value = x.inicio || ""; $("i-fin").value = x.fin || ""; $("i-lugar").value = x.lugar || ""; $("i-notas").value = x.organizador ? "Organiza: " + x.organizador : "";
+    fillRep(""); $("i-rep").closest(".grid2").hidden = true; $("w-av").hidden = true; $("tipo-seg").hidden = true;
+    $("rep-note").hidden = false; $("rep-note").textContent = "Viene de Outlook (" + x.fuente + "). La hora, el asunto y el lugar se cambian en Outlook; aquí puedes asignar el responsable y el contrato.";
+    $("btn-del").hidden = false; $("btn-del").classList.remove("armed"); $("btn-del").textContent = "Ocultar de la agenda"; $("btn-del1").hidden = true; $("err").hidden = true;
+    ["i-titulo","i-fecha","i-ini","i-fin","i-lugar","i-notas","i-rep","i-hasta"].forEach((id) => ($(id).disabled = true));
+    ["i-resp","i-proy","btn-save","btn-del"].forEach((id) => ($(id).disabled = S.readOnly));
+    $("dlg").showModal();
+  }
+  async function saveOutlook(oculto) {
+    const x = S.olEdit; if (!x || S.readOnly) return;
+    const data = { resp: $("i-resp").value, contrato: $("i-proy").value, oculto: !!oculto, t: new Date().toISOString(), uid: S.uid || "" };
+    try { await S.db.doc("outlook_ajustes/" + x.olid).set(data); log(oculto ? "quitar" : "editar", { tipo: "reunion", titulo: x.titulo, id: x.id }, oculto ? "Reunión de Outlook ocultada de la agenda" : "Outlook · responsable: " + pname(data.resp) + " · contrato: " + cLabel(S.contracts.find((c) => c.id === data.contrato))); closeDlg(); toast(oculto ? "Reunión ocultada" : "Guardado"); }
+    catch (e) { showErr(writeErr(e)); }
+  }
   function fill(x, pre) {
     pre = pre || {};
+    S.olEdit = null; $("i-rep").closest(".grid2").hidden = false; $("w-av").hidden = false;
     const series = x && x._series ? x._series : x;
     S.inst = x && x._series ? x : null;
     S.editing = series ? series.id : null; S.draftAv = series ? (series.avances || []).slice() : [];
@@ -1044,8 +1091,8 @@ window.startApp = () => {
     renderAv(); $("dlg").showModal(); if (!series && !pre.titulo) $("i-titulo").focus();
   }
   function openNew(pre) { if (S.readOnly || !S.db) { toast(S.readOnly ? "Tienes acceso de solo lectura." : "Sin conexión: no se puede crear."); return; } fill(null, pre); }
-  function openItem(x) { if (dragging) return; fill(x); }
-  function closeDlg() { $("dlg").close(); S.editing = null; S.inst = null; }
+  function openItem(x) { if (dragging) return; if (x.origen === "outlook") fillOutlook(x); else fill(x); }
+  function closeDlg() { $("dlg").close(); S.editing = null; S.inst = null; S.olEdit = null; }
   function showErr(m) { $("err").textContent = m; $("err").hidden = false; }
   function writeErr(e) {
     if (e && e.code === "invalid_argument") { S.readOnly = true; setStatus(); return "No tienes permiso para modificar (acceso de solo lectura)."; }
@@ -1078,6 +1125,7 @@ window.startApp = () => {
   }
   async function save(ev) {
     ev.preventDefault(); if (S.readOnly) return;
+    if (S.olEdit) return saveOutlook(false);
     const prev = S.editing ? S.items.find((x) => x.id === S.editing) : null;
     const pend = $("i-av").value.trim(); if (pend) S.draftAv.push({ t: new Date().toISOString(), texto: pend });
     const v = { tipo: S.tipo, titulo: $("i-titulo").value.trim(), resp: $("i-resp").value, contrato: $("i-proy").value, fecha: $("i-fecha").value, inicio: $("i-ini").value, fin: $("i-fin").value,
@@ -1102,6 +1150,7 @@ window.startApp = () => {
   }
   async function del() {
     const b = $("btn-del"); if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "Confirmar"; return; }
+    if (S.olEdit) return saveOutlook(true);
     const x = S.items.find((y) => y.id === S.editing);
     try { await S.db.doc("agenda/" + S.editing).delete(); if (x) log("eliminar", x); closeDlg(); toast("Eliminado"); } catch (e) { showErr(writeErr(e)); }
   }
@@ -1256,9 +1305,11 @@ window.startApp = () => {
     try { S.user = await window.claude?.use?.("user"); if (S.user) { S.uid = await S.user.id(); S.isOwner = await S.user.isOwner(); const can = await S.user.can("data.write"); if (can === false) S.readOnly = true; } } catch {}
     setStatus();
     const timer = setTimeout(() => { if (!S.loaded) setStatus("La conexión está tardando…"); }, 10000);
-    db.doc("config/contratos").onSnapshot((s) => { const d = s.exists ? s.data() : null; S.contracts = (d && Array.isArray(d.lista)) ? d.lista.filter((c) => c && c.id) : []; render(); renderQuick(); }, () => {});
+    db.doc("config/contratos").onSnapshot((s) => { const d = s.exists ? s.data() : null; S.contracts = (d && Array.isArray(d.lista)) ? d.lista.filter((c) => c && c.id) : []; mergeOl(); render(); renderQuick(); }, () => {});
     db.doc("config/equipo").onSnapshot((s) => { const d = s.exists ? s.data() : null; if (d) { S.people = { p1: d.p1 || "Coordinador", p2: d.p2 || "Ingeniera" }; render(); } }, () => {});
-    db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.items = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); S.loaded = true; setStatus(); render(); },
+    db.collection("outlook").limit(5000).onSnapshot((snap) => { S.ol = snap.docs.map((d) => ({ id: d.id, e: d.data() })); mergeOl(); if (S.loaded) render(); }, () => {});
+    db.collection("outlook_ajustes").limit(5000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.olaj = o; mergeOl(); if (S.loaded) render(); }, () => {});
+    db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.base = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); mergeOl(); S.loaded = true; setStatus(); render(); },
       (e) => { clearTimeout(timer); if (e && (e.code === "revoked" || e.code === "not_granted")) S.db = false; setStatus("No se pudo cargar la agenda."); render(); });
     db.collection("liq").limit(50).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liq = o; if (S.loaded) render(); }, () => {});
     db.collection("liqmod").limit(1000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liqmod = o; if (S.loaded) render(); }, () => {});
@@ -1580,8 +1631,8 @@ window.startApp = () => {
   function agMeet(x) {
     const c = cOf(x);
     return el("button", { type: "button", class: "ar meet", style: varsFor(x), onclick: () => openItem(x) },
-      el("span", { class: "at" }, el("b", { text: x.inicio || "" }), el("small", { text: x.fin || "" })), el("span", { class: "abar" }),
-      el("span", { class: "ab" }, el("b", { text: x.titulo }), el("small", { text: [c ? c.nombre : "Sin contrato", x.lugar].filter(Boolean).join(" · ") + (isSeries(x) ? " · ↻" : "") })), pb(x.resp));
+      el("span", { class: "at" }, el("b", { text: x.inicio || (x.todoElDia ? "Día" : "") }), el("small", { text: x.fin || (x.todoElDia ? "completo" : "") })), el("span", { class: "abar" }),
+      el("span", { class: "ab" }, el("b", { text: x.titulo }), el("small", { text: [c ? c.nombre : "Sin contrato", x.lugar, x.origen === "outlook" ? "Outlook" : ""].filter(Boolean).join(" · ") + (isSeries(x) ? " · ↻" : "") })), pb(x.resp));
   }
   function agTask(x) {
     const c = cOf(x), late = isLate(x);
@@ -1664,7 +1715,7 @@ window.startApp = () => {
 (() => {
   const SUPABASE_URL = "https://unfvthqaobkxhmitawvl.supabase.co";
   const SUPABASE_KEY = "sb_publishable_02rLX9sbBEqn6EeRsyX6oQ_p7GaBpO-";
-  const TABLAS = ["agenda", "config", "liq", "liqmod"];
+  const TABLAS = ["agenda", "config", "liq", "liqmod", "outlook", "outlook_ajustes"];
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
   const $ = (id) => document.getElementById(id);
   let yo = null; // { email, rol, nombre }
@@ -1818,6 +1869,8 @@ window.startApp = () => {
     $("login").hidden = true; $("app-root").hidden = false;
     window.startApp();
     extras();
+    sincronizarOutlook(false);
+    setInterval(() => sincronizarOutlook(false), 10 * 60 * 1000);
   }
   sb.auth.getSession().then(({ data }) => { if (data.session) arrancar(data.session); else { paso(1); $("login").hidden = false; } });
   sb.auth.onAuthStateChange((ev, session) => { if (ev === "SIGNED_IN" && session) arrancar(session); });
@@ -1832,8 +1885,52 @@ window.startApp = () => {
     foot.append(out, who);
   }
   async function abrirAccesos() {
-    const d = $("dlg-acc"); await pintarAccesos(); $("acc-err").hidden = true; d.showModal();
+    const d = $("dlg-acc"); await pintarAccesos(); await pintarFuentes(); $("acc-err").hidden = true; $("ol-err").hidden = true; d.showModal();
   }
+
+  // ---------- Outlook: calendarios publicados (enlace ICS) ----------
+  let sincronizando = false;
+  async function sincronizarOutlook(forzar) {
+    if (sincronizando) return; sincronizando = true;
+    try {
+      const r = await sb.functions.invoke("sync-outlook", { body: { force: !!forzar } });
+      if (r.error && forzar) olErr("No se pudo sincronizar: " + (r.error.message || "error"));
+      return r.data;
+    } catch (e) { if (forzar) olErr("No se pudo sincronizar: " + (e.message || "error")); }
+    finally { sincronizando = false; if ($("dlg-acc").open) pintarFuentes(); }
+  }
+  const olErr = (t) => { const x = $("ol-err"); x.textContent = t; x.hidden = false; };
+  const RESP = { p1: "Coordinador", p2: "Ingeniera", ambos: "Ambos" };
+  const haceCuanto = (t) => { if (!t) return "nunca"; const m = Math.round((Date.now() - new Date(t).getTime()) / 60000); return m < 1 ? "hace un momento" : m < 60 ? "hace " + m + " min" : m < 1440 ? "hace " + Math.round(m / 60) + " h" : "hace " + Math.round(m / 1440) + " días"; };
+  async function pintarFuentes() {
+    const box = $("ol-list"); if (!box) return;
+    const r = await sb.from("fuentes").select("id,nombre,resp,activo,ultima_sync,ultimo_error,eventos").order("creado", { ascending: true });
+    box.replaceChildren();
+    if (r.error) { box.textContent = "Falta ejecutar el script 03_outlook.sql en Supabase."; return; }
+    if (!r.data.length) { const p = document.createElement("p"); p.className = "note-s"; p.textContent = "Aún no hay calendarios conectados."; box.append(p); }
+    r.data.forEach((f) => {
+      const row = document.createElement("div"); row.className = "acc-row";
+      const t = document.createElement("div"); const b = document.createElement("b"); b.textContent = f.nombre; const sm = document.createElement("small");
+      sm.textContent = "Responsable por defecto: " + RESP[f.resp] + " · " + (f.ultimo_error ? "Error: " + f.ultimo_error : (f.eventos != null ? f.eventos + " reuniones · " : "") + "actualizado " + haceCuanto(f.ultima_sync));
+      if (f.ultimo_error) sm.style.color = "var(--late)";
+      t.append(b, sm); row.append(t);
+      const del = document.createElement("button"); del.type = "button"; del.className = "btn danger"; del.textContent = "Desconectar";
+      del.onclick = async () => { if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "Confirmar"; return; } const x = await sb.from("fuentes").delete().eq("id", f.id); if (x.error) return olErr(x.error.message); await sb.from("historial").insert({ data: { accion: "contrato", tipo: "contrato", titulo: "Outlook", nota: "Desconectó el calendario " + f.nombre, t: new Date().toISOString() } }); pintarFuentes(); };
+      row.append(del); box.append(row);
+    });
+  }
+  $("ol-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nombre = $("ol-name").value.trim() || "Outlook", url = $("ol-url").value.trim(), resp = $("ol-resp").value;
+    if (!/^(https?|webcal):\/\/\S+/i.test(url) || !/\.ics(\?|$)/i.test(url.split("#")[0]) && !/calendar/i.test(url)) { olErr("Pega el enlace ICS que te dio Outlook (termina en .ics)."); return; }
+    const x = await sb.from("fuentes").insert({ nombre, ics_url: url, resp }); if (x.error) return olErr("No se pudo guardar: " + x.error.message);
+    await sb.from("historial").insert({ data: { accion: "contrato", tipo: "contrato", titulo: "Outlook", nota: "Conectó el calendario " + nombre + " (responsable por defecto: " + RESP[resp] + ")", t: new Date().toISOString() } });
+    $("ol-url").value = ""; $("ol-name").value = ""; $("ol-err").hidden = true;
+    await pintarFuentes(); $("ol-sync").textContent = "Sincronizando…";
+    const d = await sincronizarOutlook(true); $("ol-sync").textContent = "Sincronizar ahora";
+    const res = d && d.resultado && d.resultado.find((r) => r.error); if (res) olErr(res.error);
+  });
+  $("ol-sync").onclick = async () => { $("ol-sync").textContent = "Sincronizando…"; const d = await sincronizarOutlook(true); $("ol-sync").textContent = "Sincronizar ahora"; const res = d && d.resultado && d.resultado.find((r) => r.error); if (res) olErr(res.error); };
   async function pintarAccesos() {
     const r = await sb.from("miembros").select("email,rol,nombre").order("rol", { ascending: true }); miembros = r.data || miembros;
     const box = $("acc-list"); box.replaceChildren();
