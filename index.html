@@ -252,6 +252,49 @@ button { cursor: pointer; }
 /* Diálogo */
 dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--side); color: var(--ink); width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); }
 dialog { overflow: auto; }
+.wk-sum { background: var(--side); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.wk-sum summary { cursor: pointer; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-weight: 600; list-style: none; flex-wrap: wrap; }
+.wk-sum summary::-webkit-details-marker { display: none; }
+.wk-sum summary::before { content: "▸ "; color: var(--muted); }
+.wk-sum[open] summary::before { content: "▾ "; }
+.wk-sum summary small { color: var(--muted); font-weight: 400; font-size: 11.5px; }
+.wk-sum[open] { display: flex; flex-direction: column; gap: 12px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 10px; }
+.kpi { background: var(--card); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+.kpi b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 11px; color: var(--muted); }
+.kpi.late b { color: var(--late); } .kpi.warn b { color: var(--warn); }
+.wk-list { display: flex; flex-direction: column; gap: 4px; }
+.wk-it, .wk-liq { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center; background: none; border: 0; color: var(--ink); text-align: left; padding: 6px 4px; border-radius: 8px; font-size: 12.5px; }
+.wk-it:hover, .wk-liq:hover { background: var(--card); }
+.wk-it .tx, .wk-liq .tx { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-liq { grid-template-columns: minmax(0, 1fr) minmax(80px, 1.4fr) 40px; }
+.wk-bar { height: 7px; background: var(--card); border-radius: 999px; overflow: hidden; }
+.wk-bar i { display: block; height: 100%; background: var(--c); }
+.inf-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.inf-per { font-size: 14px; padding: 0 6px; }
+.inf .panel h2 { margin-bottom: 4px; }
+.inf-tw { overflow-x: auto; }
+.inf-t { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.inf-t th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.inf-t td { padding: 7px 8px; border-bottom: 1px solid var(--line); }
+@media print {
+  :root { --bg: #fff; --side: #fff; --card: #f3f4f6; --card2: #e5e7eb; --ink: #111; --muted: #555; --line: #d1d5db; color-scheme: light; }
+  .side, .qa, .qa-prev, .top .nav, .bnav, .fab, .notice, .backdrop, .inf-bar .nav button { display: none !important; }
+  .main { padding: 0 !important; } .panel { break-inside: avoid; border: 1px solid #d1d5db; }
+}
+.nrev { display: inline-flex; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 999px; background: var(--warn); color: #1c1600; font-size: 10.5px; font-weight: 700; align-items: center; justify-content: center; }
+.bnav .nrev { position: absolute; margin: -6px 0 0 18px; }
+.bnav button { position: relative; }
+.grp-l.rev { color: var(--warn); }
+.tr.rev { grid-template-columns: auto minmax(0, 1fr) auto; box-shadow: inset 3px 0 0 var(--warn); }
+.rev-ic { color: var(--warn); font-size: 16px; }
+.rev-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.rev-acts .btn { padding: 6px 10px; font-size: 12px; }
+.rev-wrap { display: flex; flex-direction: column; gap: 4px; }
+.pill-rev { color: var(--warn); font-weight: 600; }
+.chip.revc { box-shadow: inset 0 0 0 1px var(--warn); }
+@media (max-width: 700px) { .tr.rev { grid-template-columns: auto minmax(0, 1fr); } .rev-acts { grid-column: 2; justify-content: flex-start; } }
 .vip { background: repeating-linear-gradient(135deg, #facc15 0 12px, #eab308 12px 24px) !important; color: #1c1600 !important; border-left-color: #fff7cc !important; box-shadow: 0 0 0 2px #fde68a, 0 6px 18px rgb(250 204 21 / .25); }
 .vip b, .vip i, .vip small, .vip .tx, .vip .tm { color: #1c1600 !important; opacity: 1 !important; }
 .vip .pb { background: rgb(0 0 0 / .78); color: #fde68a; }
@@ -546,6 +589,7 @@ img { max-width: 100%; }
       <span><span style="width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--late);"></span>Vencida</span>
     </div>
     <div class="side-foot">
+      <button class="btn" type="button" data-view="informes" hidden>Informes (solo tú)</button>
       <button class="btn" id="btn-team" type="button">Nombres del equipo</button>
       <button class="btn" id="btn-csv" type="button">Exportar a Excel (CSV)</button>
     </div>
@@ -565,6 +609,7 @@ img { max-width: 100%; }
           <button type="button" data-view="mes" aria-pressed="false">Mes</button>
           <button type="button" data-view="historial" aria-pressed="false">Pendientes e historial</button>
           <button type="button" data-view="liq" aria-pressed="false">Liquidaciones</button>
+          <button type="button" data-view="informes" aria-pressed="false" hidden>Informes</button>
         </div>
       </div>
     </div>
@@ -580,6 +625,7 @@ img { max-width: 100%; }
     <section id="v-mes" class="month" aria-label="Mes" hidden></section>
     <section id="v-historial" aria-label="Pendientes e historial" hidden></section>
     <section id="v-liq" aria-label="Liquidaciones" hidden></section>
+    <section id="v-informes" aria-label="Informes" hidden></section>
   </main>
 </div>
 
@@ -607,7 +653,7 @@ img { max-width: 100%; }
     <p class="note-s" id="rep-note" hidden></p>
     <div class="grid2" id="w-task-extra">
       <div class="field"><label for="i-prio">Prioridad</label><select id="i-prio"><option value="alta">Alta</option><option value="media" selected>Media</option><option value="baja">Baja</option></select></div>
-      <div class="field"><label for="i-estado">Estado</label><select id="i-estado"><option value="pendiente">Pendiente</option><option value="curso">En curso</option><option value="hecha">Hecha</option></select></div>
+      <div class="field"><label for="i-estado">Estado</label><select id="i-estado"><option value="pendiente">Pendiente</option><option value="curso">En curso</option><option value="revision">En revisión</option><option value="hecha">Hecha</option></select></div>
     </div>
     <div class="field" id="w-lugar"><label for="i-lugar">Lugar o enlace</label><input id="i-lugar" maxlength="120" placeholder="Sala IDU, Teams, frente 2…"></div>
     <div class="field"><label for="i-notas">Notas</label><textarea id="i-notas" maxlength="2000" placeholder="Detalles, contacto en la ESP, documentos…"></textarea></div>
@@ -776,7 +822,7 @@ window.startApp = () => {
   let toastT;
   function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2800); }
   const pname = (k) => k === "ambos" ? "Ambos" : (S.people[k] || (k === "p2" ? "Ingeniera" : "Coordinador"));
-  const isLate = (x) => x.tipo === "tarea" && x.origen !== "outlook" && x.estado !== "hecha" && x.fecha && x.fecha < todayISO();
+  const isLate = (x) => x.tipo === "tarea" && x.origen !== "outlook" && x.estado !== "hecha" && x.estado !== "revision" && x.fecha && x.fecha < todayISO();
   // Reuniones traídas de Outlook (solo lectura; aquí solo se asigna responsable y contrato)
   S.base = []; S.ol = []; S.olaj = {};
   function guessContrato(t) {
@@ -815,6 +861,8 @@ window.startApp = () => {
 
   function renderSideCounts() {
     $("n-p1").textContent = pname("p1"); $("n-p2").textContent = pname("p2");
+    const nRev = S.isOwner ? porRevisar().length : 0;
+    document.querySelectorAll('[data-view="historial"]').forEach((b) => { let k = b.querySelector(".nrev"); if (!nRev) { if (k) k.remove(); return; } if (!k) { k = el("span", { class: "nrev" }); b.append(k); } k.textContent = String(nRev); });
     $("b-p1").textContent = badgeText("p1"); $("b-p2").textContent = badgeText("p2"); $("b-both").textContent = badgeText("ambos");
     const t0 = todayISO(), t7 = iso(addDays(new Date(), 7));
     const all = S.items.filter((x) => x.tipo === "tarea");
@@ -858,13 +906,14 @@ window.startApp = () => {
     else if (S.view === "mes") { $("eyebrow").textContent = String(c.getFullYear()); $("title").textContent = MESES[c.getMonth()][0].toUpperCase() + MESES[c.getMonth()].slice(1); }
     else if (S.view === "liq") { const c = L.sel && S.contracts.find((x) => x.id === L.sel); $("eyebrow").textContent = c ? "Liquidaciones · " + c.codigo : "Control de contratos"; $("title").textContent = c ? c.nombre : "Liquidaciones"; }
     else { $("eyebrow").textContent = "Seguimiento"; $("title").textContent = S.isOwner ? "Pendientes e historial" : "Pendientes"; }
-    ["prev","today","next"].forEach((id) => ($(id).hidden = S.view === "historial" || S.view === "liq"));
+    if (S.view === "informes") { $("eyebrow").textContent = "Solo para el coordinador"; $("title").textContent = "Informes"; }
+    ["prev","today","next"].forEach((id) => ($(id).hidden = S.view === "historial" || S.view === "liq" || S.view === "informes"));
     document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === S.view)));
   }
 
   function renderView() {
-    $("v-agenda").hidden = S.view !== "agenda"; $("v-semana").hidden = S.view !== "semana"; $("v-mes").hidden = S.view !== "mes"; $("v-historial").hidden = S.view !== "historial"; $("v-liq").hidden = S.view !== "liq";
-    if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") renderLiq(); else renderHist();
+    $("v-agenda").hidden = S.view !== "agenda"; $("v-semana").hidden = S.view !== "semana"; $("v-mes").hidden = S.view !== "mes"; $("v-historial").hidden = S.view !== "historial"; $("v-liq").hidden = S.view !== "liq"; $("v-informes").hidden = S.view !== "informes";
+    if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") renderLiq(); else if (S.view === "informes") renderInformes(); else renderHist();
   }
 
   // ---------- arrastrar tareas (y reuniones en el mes) ----------
@@ -888,7 +937,7 @@ window.startApp = () => {
   }
 
   function taskChip(x) {
-    return dragSrc(el("button", { type: "button", class: "chip" + (x.estado === "hecha" ? " done" : "") + (isLate(x) ? " late" : "") + (x.destacado ? " vip" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo + (isSeries(x) ? "\n" + repLabel(x.rep.freq, (x._series || x).fecha) : ""), onclick: (e) => { e.stopPropagation(); openItem(x); } },
+    return dragSrc(el("button", { type: "button", class: "chip" + (x.estado === "hecha" ? " done" : "") + (x.estado === "revision" ? " revc" : "") + (isLate(x) ? " late" : "") + (x.destacado ? " vip" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo + (isSeries(x) ? "\n" + repLabel(x.rep.freq, (x._series || x).fecha) : ""), onclick: (e) => { e.stopPropagation(); openItem(x); } },
       x.tipo === "reunion" ? el("span", { class: "lq", text: "◷" }) : el("span", { class: "bx" }), el("span", { class: "tx", style: "flex:1", text: (x.inicio ? x.inicio + " " : "") + x.titulo }), repMark(x), pb(x.resp)), x);
   }
 
@@ -1003,28 +1052,31 @@ window.startApp = () => {
   function taskRow(x) {
     const late = isLate(x), c = cOf(x);
     return el("div", { class: "tr" + (x.estado === "hecha" ? " done" : "") },
-      el("input", { type: "checkbox", checked: x.estado === "hecha", disabled: S.readOnly, "aria-label": "Marcar como hecha: " + x.titulo, onchange: (e) => toggleDone(x, e.target.checked) }),
+      el("input", { type: "checkbox", checked: x.estado === "hecha" || x.estado === "revision", disabled: S.readOnly, "aria-label": "Marcar como hecha: " + x.titulo, onchange: (e) => toggleDone(x, e.target.checked) }),
       el("div", { style: "min-width:0" }, el("button", { type: "button", class: "t", text: x.titulo, onclick: () => openItem(x) }),
         el("div", { class: "meta" }, el("span", { class: "who" }, pb(x.resp), pname(x.resp)), el("span", { class: "who", style: varsFor(x) }, el("span", { class: "dot" }), c ? c.nombre : "Sin contrato"),
           isSeries(x) ? el("span", { text: "↻ " + repLabel(x.rep.freq, x._series.fecha) }) : null,
           x.prio === "alta" ? el("span", { style: "color:var(--late)", text: "Prioridad alta" }) : null, x.estado === "curso" ? el("span", { style: "color:var(--accent)", text: "En curso" }) : null,
+          x.estado === "revision" ? el("span", { class: "pill-rev", text: "⧗ En revisión" }) : null,
           (x.avances || []).length ? el("span", { text: x.avances.length + (x.avances.length === 1 ? " avance" : " avances") }) : null)),
       el("span", { class: "dt" + (late ? " late" : ""), text: x.fecha ? fmtD(x.fecha) : "sin fecha" }));
   }
 
-  const ICON = { crear: ["+", "var(--p2)"], hecha: ["✓", "var(--done)"], reabrir: ["↺", "var(--muted)"], avance: ["✎", "var(--p1)"], editar: ["✎", "var(--muted)"], eliminar: ["✕", "var(--late)"], reunion: ["◷", "var(--both)"], mover: ["↔", "var(--accent)"], quitar: ["✕", "var(--muted)"], liq: ["§", "#34d399"], contrato: ["⚙", "var(--warn)"] };
+  const ICON = { crear: ["+", "var(--p2)"], hecha: ["✓", "var(--done)"], reabrir: ["↺", "var(--muted)"], avance: ["✎", "var(--p1)"], editar: ["✎", "var(--muted)"], eliminar: ["✕", "var(--late)"], reunion: ["◷", "var(--both)"], mover: ["↔", "var(--accent)"], quitar: ["✕", "var(--muted)"], liq: ["§", "#34d399"], contrato: ["⚙", "var(--warn)"], revision: ["⧗", "var(--warn)"], aprobar: ["✓", "var(--done)"], devolver: ["↩", "var(--late)"] };
   function renderHist() {
     const box = $("v-historial"); const t0 = todayISO(), t7 = iso(addDays(new Date(), 7));
     const open = pendingTasks().sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
     const left = el("div", { class: "panel" }, el("div", { class: "panel-h" }, el("h2", { text: "Pendientes" }), el("span", { class: "lbl", text: open.length + " abiertas" })));
+    const prv = porRevisar();
+    if (S.isOwner && prv.length) left.append(el("span", { class: "grp-l rev", text: "Por revisar · " + prv.length }), ...prv.map(revRow));
     if (!S.loaded) left.append(el("div", { class: "empty", text: "Cargando…" }));
     else if (!open.length) left.append(el("div", { class: "empty" }, el("b", { text: "No hay pendientes abiertos" }), el("span", { text: "Las tareas que programen aparecen aquí, ordenadas por fecha límite." })));
     [["Vencidas", open.filter(isLate), "late"], ["Hoy", open.filter((x) => x.fecha === t0)], ["Próximos 7 días", open.filter((x) => x.fecha > t0 && x.fecha <= t7)], ["Más adelante", open.filter((x) => x.fecha > t7)], ["Sin fecha", open.filter((x) => !x.fecha)]]
-      .forEach(([n, xs, c]) => { if (xs.length) left.append(el("span", { class: "grp-l" + (c ? " " + c : ""), text: n + " · " + xs.length }), ...xs.map(taskRow)); });
+      .forEach(([n, xs, c]) => { xs = S.isOwner ? xs.filter((x) => x.estado !== "revision") : xs; if (xs.length) left.append(el("span", { class: "grp-l" + (c ? " " + c : ""), text: n + " · " + xs.length }), ...xs.map(taskRow)); });
     const done = doneTasks();
     if (done.length) left.append(el("details", null, el("summary", { class: "grp-l", style: "cursor:pointer", text: "Hechas · " + done.length }), el("div", { style: "display:flex;flex-direction:column;gap:8px;margin-top:8px" }, done.slice(0, 50).map(taskRow))));
 
-    const F = { todo: () => true, hechas: (h) => h.accion === "hecha", reuniones: (h) => h.tipo === "reunion", avances: (h) => h.accion === "avance", liq: (h) => h.tipo === "liq" || h.tipo === "contrato" };
+    const F = { todo: () => true, hechas: (h) => h.accion === "hecha" || h.accion === "aprobar" || h.accion === "revision" || h.accion === "devolver", reuniones: (h) => h.tipo === "reunion", avances: (h) => h.accion === "avance", liq: (h) => h.tipo === "liq" || h.tipo === "contrato" };
     const right = el("div", { class: "panel" }, el("div", { class: "panel-h" }, el("h2", { text: "Historial" }),
       el("div", { class: "chips" }, [["todo", "Todo"], ["hechas", "Hechas"], ["reuniones", "Reuniones"], ["avances", "Avances"], ["liq", "Liquidaciones"]].map(([k, l]) => el("button", { type: "button", "aria-pressed": String(S.histFilter === k), text: l, onclick: () => { S.histFilter = k; renderHist(); } })))));
     const hs = S.hist.filter(F[S.histFilter]);
@@ -1036,7 +1088,7 @@ window.startApp = () => {
           h.nota ? el("span", { class: "note", text: h.nota }) : null)); })));
     box.replaceChildren(S.isOwner ? el("div", { class: "ph" }, left, right) : el("div", { class: "ph", style: "grid-template-columns:minmax(0,1fr)" }, left));
   }
-  function verb(h) { const r = h.tipo === "reunion"; return ({ crear: r ? "programó la reunión" : "programó la tarea", hecha: "marcó como hecha", reabrir: "reabrió", avance: "agregó un avance a", editar: r ? "editó la reunión" : "editó la tarea", eliminar: r ? "eliminó la reunión" : "eliminó la tarea", mover: r ? "movió la reunión" : "movió la tarea", quitar: "quitó una fecha de", liq: "actualizó en liquidación", contrato: "cambió" })[h.accion] || "modificó"; }
+  function verb(h) { const r = h.tipo === "reunion"; return ({ crear: r ? "programó la reunión" : "programó la tarea", hecha: "marcó como hecha", reabrir: "reabrió", avance: "agregó un avance a", editar: r ? "editó la reunión" : "editó la tarea", eliminar: r ? "eliminó la reunión" : "eliminó la tarea", mover: r ? "movió la reunión" : "movió la tarea", quitar: "quitó una fecha de", liq: "actualizó en liquidación", contrato: "cambió", revision: "envió a revisión", aprobar: "aprobó", devolver: "devolvió" })[h.accion] || "modificó"; }
   function fmtWhen(t) { const d = new Date(t), s = iso(d), y = iso(addDays(new Date(), -1)); const h = pad(d.getHours()) + ":" + pad(d.getMinutes()); return s === todayISO() ? "Hoy " + h : s === y ? "Ayer " + h : fmtD(s) + " " + h; }
 
   // ---------- diálogo ----------
@@ -1155,7 +1207,9 @@ window.startApp = () => {
     const v = { tipo: S.tipo, titulo: $("i-titulo").value.trim(), resp: $("i-resp").value, contrato: $("i-proy").value, fecha: $("i-fecha").value, inicio: $("i-ini").value, fin: $("i-fin").value,
       lugar: $("i-lugar").value.trim(), prio: $("i-prio").value, estado: $("i-rep").value ? "pendiente" : $("i-estado").value, notas: $("i-notas").value.trim(), avances: S.draftAv, freq: $("i-rep").value, hasta: $("i-hasta").value };
     const bad = validate(v); if (bad) { showErr(bad); return; }
+    if (!S.isOwner && v.estado === "hecha" && !(prev && prev.estado === "hecha")) v.estado = "revision";
     const data = buildData(v, prev);
+    if (data.estado === "revision" && !(prev && prev.estado === "revision")) data.enviada = new Date().toISOString(); else if (prev && prev.enviada) data.enviada = prev.enviada;
     $("btn-save").disabled = true;
     try {
       let id = prev && prev.id;
@@ -1185,11 +1239,133 @@ window.startApp = () => {
   }
   async function toggleDone(x, on) {
     const now = new Date().toISOString();
+    // La ingeniera no cierra tareas: las envía a revisión del coordinador (las repetitivas se marcan directo).
+    if (on && !S.isOwner && !x._series) return enviarRevision(x);
     try {
       if (x._series) { const s = x._series, h = Object.assign({}, s.hechas || {}); if (on) h[x._date] = now; else delete h[x._date]; await S.db.doc("agenda/" + s.id).update({ hechas: h, actualizada: now }); log(on ? "hecha" : "reabrir", s, fmtDL(x._date)); }
       else { await S.db.doc("agenda/" + x.id).update({ estado: on ? "hecha" : "pendiente", completada: on ? now : "", actualizada: now }); log(on ? "hecha" : "reabrir", x); }
       toast(on ? "Marcada como hecha" : "Reabierta");
     } catch (e) { toast(writeErr(e)); render(); }
+  }
+
+  async function enviarRevision(x) {
+    const now = new Date().toISOString();
+    try { await S.db.doc("agenda/" + x.id).update({ estado: "revision", enviada: now, actualizada: now }); log("revision", x); toast("Enviada a revisión del coordinador"); }
+    catch (e) { toast(writeErr(e)); render(); }
+  }
+  async function aprobar(x) {
+    const now = new Date().toISOString();
+    try { await S.db.doc("agenda/" + x.id).update({ estado: "hecha", completada: x.enviada || now, aprobada: now, actualizada: now }); log("aprobar", x); toast("Tarea aprobada"); }
+    catch (e) { toast(writeErr(e)); }
+  }
+  async function devolver(x, nota) {
+    const now = new Date().toISOString(), av = (x.avances || []).concat({ t: now, texto: "Devuelta por el coordinador: " + nota });
+    try { await S.db.doc("agenda/" + x.id).update({ estado: "curso", avances: av, actualizada: now }); log("devolver", x, nota); toast("Tarea devuelta con tu comentario"); }
+    catch (e) { toast(writeErr(e)); }
+  }
+  // Fila de la bandeja "Por revisar" (solo coordinador): aprobar o devolver con comentario
+  const revOpen = {};
+  function revRow(x) {
+    const c = cOf(x);
+    const row = el("div", { class: "tr rev", style: varsFor(x) },
+      el("span", { class: "rev-ic", text: "⧗" }),
+      el("div", { style: "min-width:0" }, el("button", { type: "button", class: "t", text: x.titulo, onclick: () => openItem(x) }),
+        el("div", { class: "meta" }, el("span", { class: "who" }, pb(x.resp), pname(x.resp)), el("span", { class: "who" }, el("span", { class: "dot" }), c ? c.nombre : "Sin contrato"),
+          x.enviada ? el("span", { text: "enviada " + fmtWhen(x.enviada) }) : null, x.fecha ? el("span", { class: isLateRaw(x) ? "late" : "", text: "límite " + fmtD(x.fecha) }) : null)),
+      el("div", { class: "rev-acts" },
+        el("button", { type: "button", class: "btn primary", text: "Aprobar", onclick: () => aprobar(x) }),
+        el("button", { type: "button", class: "btn", text: "Devolver", onclick: () => { revOpen[x.id] = !revOpen[x.id]; render(); } })));
+    if (!revOpen[x.id]) return row;
+    const inp = el("input", { placeholder: "Qué falta o qué hay que corregir", maxlength: "400", "aria-label": "Comentario para devolver" });
+    const send = () => { const t = inp.value.trim(); if (!t) { inp.focus(); return; } revOpen[x.id] = false; devolver(x, t); };
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); send(); } });
+    setTimeout(() => inp.focus(), 0);
+    return el("div", { class: "rev-wrap" }, row, el("div", { class: "lq-add", style: "padding-left:40px" }, inp, el("button", { type: "button", class: "btn primary", text: "Devolver", onclick: send })));
+  }
+  const isLateRaw = (x) => x.fecha && x.fecha < todayISO();
+  const porRevisar = () => S.items.filter((x) => x.tipo === "tarea" && x.estado === "revision" && x.origen !== "outlook");
+
+  // ---------- resumen de la semana ----------
+  function resumenSemana() {
+    const t0 = todayISO(), a = iso(monday(new Date())), b = iso(addDays(monday(new Date()), 6)), pa = iso(addDays(parse(a), -7)), pb_ = iso(addDays(parse(a), -1));
+    const pend = pendingTasks(), venc = pend.filter(isLate), vence = pend.filter((x) => x.fecha >= t0 && x.fecha <= b).sort((x, y) => sortKey(x).localeCompare(sortKey(y)));
+    const reus = instancesIn(a, b).filter((x) => x.tipo === "reunion" && x.inicio), horas = reus.reduce((h, x) => h + Math.max(0, (toMin(x.fin) || toMin(x.inicio) + 60) - toMin(x.inicio)) / 60, 0);
+    const cerradas = doneTasks().filter((x) => { const d = (x.completada || "").slice(0, 10); return d >= pa && d <= pb_; });
+    const porPersona = ["p1", "p2"].map((k) => [k, cerradas.filter((x) => x.resp === k).length]);
+    const liqs = S.contracts.filter((c) => !c.archivado && c.fase === "liquidacion" && S.liq[c.id]).map((c) => [c, liqStats(c.id)]);
+    let abierto = new Date().getDay() === 1; try { const v = localStorage.getItem("resumen-" + a); if (v) abierto = v === "1"; } catch (_) {}
+    const kpi = (n, t, cls) => el("div", { class: "kpi" + (cls ? " " + cls : "") }, el("b", { text: String(n) }), el("span", { text: t }));
+    const d = el("details", { class: "wk-sum", open: abierto },
+      el("summary", null, el("span", { text: "Resumen de la semana" }), el("small", { text: fmtD(a) + " – " + fmtD(b) + (venc.length ? " · " + venc.length + " vencidas" : "") })),
+      el("div", { class: "kpis" }, kpi(venc.length, "tareas vencidas", venc.length ? "late" : ""), kpi(vence.length, "vencen esta semana"), kpi(reus.length, "reuniones · " + Math.round(horas) + " h"),
+        S.isOwner ? kpi(porRevisar().length, "por revisar", porRevisar().length ? "warn" : "") : kpi(pend.filter((x) => x.estado === "revision").length, "en revisión"),
+        kpi(cerradas.length, "cerradas la semana pasada")),
+      cerradas.length ? el("div", { class: "muted" }, "Cerradas la semana pasada: ", porPersona.map(([k, n]) => pname(k) + " " + n).join(" · ")) : null,
+      vence.length ? el("div", { class: "wk-list" }, el("span", { class: "lbl", text: "Vence esta semana" }), vence.slice(0, 6).map((x) => el("button", { type: "button", class: "wk-it", style: varsFor(x), onclick: () => openItem(x) }, el("span", { class: "dot" }), el("span", { class: "tx", text: x.titulo }), el("span", { class: "muted", text: fmtDL(x.fecha) }), pb(x.resp))), vence.length > 6 ? el("span", { class: "muted", text: "y " + (vence.length - 6) + " más" }) : null) : null,
+      liqs.length ? el("div", { class: "wk-list" }, el("span", { class: "lbl", text: "Avance de liquidaciones" }), liqs.map(([c, st]) => el("button", { type: "button", class: "wk-liq", style: colorVars(c.color), onclick: () => openLiq(c.id) }, el("span", { class: "tx", text: c.nombre }), el("span", { class: "wk-bar" }, el("i", { style: "width:" + (st.total ? Math.round(st.done / st.total * 100) : 0) + "%" })), el("b", { text: (st.total ? Math.round(st.done / st.total * 100) : 0) + "%" })))) : null);
+    d.addEventListener("toggle", () => { try { localStorage.setItem("resumen-" + a, d.open ? "1" : "0"); } catch (_) {} });
+    return d;
+  }
+
+  // ---------- informes (solo coordinador) ----------
+  const INF = { modo: "semana", ref: new Date() };
+  function periodo() {
+    if (INF.modo === "mes") { const a = new Date(INF.ref.getFullYear(), INF.ref.getMonth(), 1), b = new Date(INF.ref.getFullYear(), INF.ref.getMonth() + 1, 0); return [iso(a), iso(b), MESES[a.getMonth()][0].toUpperCase() + MESES[a.getMonth()].slice(1) + " " + a.getFullYear()]; }
+    const a = monday(INF.ref), b = addDays(a, 6); return [iso(a), iso(b), "Semana " + weekNum(a) + " · " + fmtD(iso(a)) + " – " + fmtD(iso(b)) + " " + b.getFullYear()];
+  }
+  function datosInforme() {
+    const [a, b, nombre] = periodo(), t0 = todayISO(), corte = b < t0 ? b : t0;
+    const tareas = S.items.filter((x) => x.tipo === "tarea" && x.origen !== "outlook").flatMap((x) => isSeries(x) ? occurrences(x, a, b).map((d) => inst(x, d)) : (x.fecha >= a && x.fecha <= b ? [x] : []));
+    const pers = ["p1", "p2"].map((k) => {
+      const mias = tareas.filter((x) => x.resp === k), venc = mias.filter((x) => x.fecha <= corte);
+      const aTiempo = venc.filter((x) => x.estado === "hecha" && (x.completada || "").slice(0, 10) <= x.fecha).length;
+      return { k, nombre: pname(k), conVence: mias.length, cerradas: mias.filter((x) => x.estado === "hecha").length, aTiempo, vencidas: mias.filter((x) => isLate(x)).length, revision: mias.filter((x) => x.estado === "revision").length,
+        cumplimiento: venc.length ? Math.round(aTiempo / venc.length * 100) : null,
+        completadasPeriodo: S.items.filter((x) => x.tipo === "tarea" && x.resp === k && !isSeries(x) && x.estado === "hecha" && (x.completada || "").slice(0, 10) >= a && (x.completada || "").slice(0, 10) <= b).length };
+    });
+    const reus = instancesIn(a, b).filter((x) => x.tipo === "reunion" && x.inicio);
+    const durH = (x) => Math.max(0, (toMin(x.fin) || toMin(x.inicio) + 60) - toMin(x.inicio)) / 60;
+    const porContrato = {}; reus.forEach((x) => { const id = x.contrato || "_none"; const o = porContrato[id] = porContrato[id] || { n: 0, h: 0 }; o.n++; o.h += durH(x); });
+    const porResp = { p1: 0, p2: 0, ambos: 0 }; reus.forEach((x) => (porResp[x.resp] = (porResp[x.resp] || 0) + 1));
+    const hs = S.hist.filter((h) => { const d = (h.t || "").slice(0, 10); return d >= a && d <= b; });
+    const liqs = S.contracts.filter((c) => !c.archivado && c.fase === "liquidacion" && S.liq[c.id]).map((c) => {
+      const st = liqStats(c.id), mios = hs.filter((h) => h.tipo === "liq" && (h.nota || "").startsWith(c.codigo));
+      return { c, pct: st.total ? Math.round(st.done / st.total * 100) : 0, done: st.done, total: st.total, cerradosPeriodo: mios.filter((h) => /Aprobado por (IDU|la ESP)/.test(h.nota || "")).length, cambios: mios.length, vencidos: st.late };
+    });
+    const act = {}; hs.forEach((h) => { const q = S.names[h.uid] || h.uid || "—"; act[q] = (act[q] || 0) + 1; });
+    return { a, b, nombre, pers, reus, porContrato, porResp, horas: reus.reduce((s2, x) => s2 + durH(x), 0), liqs, act };
+  }
+  function renderInformes() {
+    const box = $("v-informes"); if (!S.isOwner) { box.replaceChildren(); return; }
+    const D = datosInforme();
+    const tabla = (cab, filas) => el("div", { class: "inf-tw" }, el("table", { class: "inf-t" }, el("thead", null, el("tr", null, cab.map((h) => el("th", { text: h })))), el("tbody", null, filas.map((f) => el("tr", null, f.map((v) => el("td", { text: v == null ? "—" : String(v) })))))));
+    const mover = (d) => { INF.ref = INF.modo === "mes" ? new Date(INF.ref.getFullYear(), INF.ref.getMonth() + d, 1) : addDays(INF.ref, 7 * d); renderInformes(); };
+    box.replaceChildren(el("div", { class: "lq-wrap inf" },
+      el("div", { class: "inf-bar" },
+        el("div", { class: "lq-views", role: "group", "aria-label": "Periodo" }, [["semana", "Semanal"], ["mes", "Mensual"]].map(([k, t]) => el("button", { type: "button", "aria-pressed": String(INF.modo === k), text: t, onclick: () => { INF.modo = k; INF.ref = new Date(); renderInformes(); } }))),
+        el("div", { class: "nav" }, el("button", { type: "button", class: "btn", "aria-label": "Periodo anterior", text: "‹", onclick: () => mover(-1) }), el("b", { class: "inf-per", text: D.nombre }), el("button", { type: "button", class: "btn", "aria-label": "Periodo siguiente", text: "›", onclick: () => mover(1) })),
+        el("div", { class: "nav" }, el("button", { type: "button", class: "btn", text: "Exportar a Excel", onclick: () => exportInforme(D) }), el("button", { type: "button", class: "btn", text: "Imprimir / PDF", onclick: () => window.print() }))),
+      el("p", { class: "muted", text: "Este informe solo lo ves tú. Cumplimiento a tiempo = tareas cerradas antes de su fecha límite ÷ tareas que ya debían estar cerradas en el periodo." }),
+      el("div", { class: "panel" }, el("h2", { text: "Tareas por persona" }), tabla(["Persona", "Con fecha en el periodo", "Cerradas", "A tiempo", "Cumplimiento", "Vencidas abiertas", "En revisión", "Cerradas en el periodo"],
+        D.pers.map((p) => [p.nombre, p.conVence, p.cerradas, p.aTiempo, p.cumplimiento == null ? "—" : p.cumplimiento + "%", p.vencidas, p.revision, p.completadasPeriodo]))),
+      el("div", { class: "panel" }, el("h2", { text: "Reuniones" }), el("p", { class: "muted", text: D.reus.length + " reuniones · " + Math.round(D.horas * 10) / 10 + " horas · " + pname("p1") + " " + D.porResp.p1 + " · " + pname("p2") + " " + D.porResp.p2 + " · ambos " + D.porResp.ambos }),
+        tabla(["Contrato", "Reuniones", "Horas"], Object.entries(D.porContrato).sort((x, y) => y[1].h - x[1].h).map(([id, o]) => [id === "_none" ? "Sin contrato" : cLabel(S.contracts.find((c) => c.id === id)), o.n, Math.round(o.h * 10) / 10]))),
+      el("div", { class: "panel" }, el("h2", { text: "Liquidaciones" }), tabla(["Contrato", "Avance actual", "Principales cerrados", "Cerrados en el periodo", "Cambios registrados", "Con plazo vencido"],
+        D.liqs.map((o) => [cLabel(o.c), o.pct + "%", o.done + " de " + o.total, o.cerradosPeriodo, o.cambios, o.vencidos]))),
+      el("div", { class: "panel" }, el("h2", { text: "Actividad del equipo" }), Object.keys(D.act).length ? tabla(["Persona", "Cambios registrados en el historial"], Object.entries(D.act).map(([q, n]) => [q, n])) : el("p", { class: "muted", text: "Sin actividad registrada en este periodo." }))));
+  }
+  async function exportInforme(D) {
+    const rows = [["Informe", D.nombre], [], ["Tareas por persona"], ["Persona", "Con fecha en el periodo", "Cerradas", "A tiempo", "Cumplimiento %", "Vencidas abiertas", "En revisión", "Cerradas en el periodo"]];
+    D.pers.forEach((p) => rows.push([p.nombre, p.conVence, p.cerradas, p.aTiempo, p.cumplimiento == null ? "" : p.cumplimiento, p.vencidas, p.revision, p.completadasPeriodo]));
+    rows.push([], ["Reuniones por contrato"], ["Contrato", "Reuniones", "Horas"]);
+    Object.entries(D.porContrato).forEach(([id, o]) => rows.push([id === "_none" ? "Sin contrato" : cLabel(S.contracts.find((c) => c.id === id)), o.n, String(Math.round(o.h * 10) / 10).replace(".", ",")]));
+    rows.push([], ["Liquidaciones"], ["Contrato", "Avance %", "Principales cerrados", "Total principales", "Cerrados en el periodo", "Cambios registrados", "Con plazo vencido"]);
+    D.liqs.forEach((o) => rows.push([cLabel(o.c), o.pct, o.done, o.total, o.cerradosPeriodo, o.cambios, o.vencidos]));
+    rows.push([], ["Actividad del equipo"], ["Persona", "Cambios"]); Object.entries(D.act).forEach(([q, n]) => rows.push([q, n]));
+    const csv = "\ufeff" + rows.map((r) => r.map((c) => '"' + String(c ?? "").replace(/"/g, '""') + '"').join(";")).join("\r\n");
+    let dl = null; try { dl = await window.claude?.use?.("downloads"); } catch {}
+    if (!dl) { toast("La descarga no está disponible en esta vista."); return; }
+    try { await dl.save({ filename: "informe-" + D.a + "-" + D.b + ".csv", data: csv }); } catch (e) { if (e && e.code !== "declined") toast("No se pudo descargar el archivo."); }
   }
 
   // ---------- creación rápida en una línea ----------
@@ -1302,7 +1478,7 @@ window.startApp = () => {
   async function exportCSV() {
     const rows = [["Tipo","Título","Responsable","Contrato","Fecha","Inicio","Fin","Lugar","Se repite","Hasta","Prioridad","Estado","Vencida","Notas","Último avance","Creada","Completada"]];
     S.items.slice().sort((a, b) => sortKey(a).localeCompare(sortKey(b))).forEach((x) => { const last = (x.avances || []).slice(-1)[0];
-      rows.push([x.tipo === "reunion" ? "Reunión" : "Tarea", x.titulo, pname(x.resp), cLabel(cOf(x)), x.fecha, x.inicio, x.fin, x.lugar, isSeries(x) ? repLabel(x.rep.freq, x.fecha) : "", isSeries(x) ? (x.rep.hasta || "") : "", x.prio, ({ pendiente: "Pendiente", curso: "En curso", hecha: "Hecha" })[x.estado] || "", isLate(x) ? "Sí" : "No", x.notas, last ? last.t.slice(0, 10) + " " + last.texto : "", (x.creada || "").slice(0, 10), (x.completada || "").slice(0, 10)]); });
+      rows.push([x.tipo === "reunion" ? "Reunión" : "Tarea", x.titulo, pname(x.resp), cLabel(cOf(x)), x.fecha, x.inicio, x.fin, x.lugar, isSeries(x) ? repLabel(x.rep.freq, x.fecha) : "", isSeries(x) ? (x.rep.hasta || "") : "", x.prio, ({ pendiente: "Pendiente", curso: "En curso", revision: "En revisión", hecha: "Hecha" })[x.estado] || "", isLate(x) ? "Sí" : "No", x.notas, last ? last.t.slice(0, 10) + " " + last.texto : "", (x.creada || "").slice(0, 10), (x.completada || "").slice(0, 10)]); });
     const csv = "﻿" + rows.map((r) => r.map((c) => '"' + String(c ?? "").replace(/"/g, '""') + '"').join(";")).join("\r\n");
     let dl = null; try { dl = await window.claude?.use?.("downloads"); } catch {}
     if (!dl) { toast("La descarga no está disponible en esta vista."); return; }
@@ -1349,8 +1525,13 @@ window.startApp = () => {
   // ---------- eventos ----------
   function applyRole() {
     const seg = document.querySelector('.seg [data-view="historial"]'); if (seg) seg.textContent = S.isOwner ? "Pendientes e historial" : "Pendientes";
+    $("btn-team").hidden = !S.isOwner; $("btn-contracts").hidden = !S.isOwner;
+    document.querySelectorAll('[data-view="informes"]').forEach((b) => (b.hidden = !S.isOwner));
+    renderSideCounts();
   }
-  function setView(v) { S.view = v; S.miniMonth = null; render(); }
+  function setView(v) {
+    if (v === "informes" && !S.isOwner) v = "agenda";
+    document.body.classList.remove("drawer"); S.view = v; S.miniMonth = null; render(); }
   function shift(dir) { const c = S.cursor; S.cursor = S.view === "mes" ? new Date(c.getFullYear(), c.getMonth() + dir, 1) : addDays(c, (S.view === "agenda" ? 1 : 7) * dir); S.miniMonth = null; render(); }
   document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
   $("prev").onclick = () => shift(-1); $("next").onclick = () => shift(1); $("today").onclick = () => { S.cursor = new Date(); S.miniMonth = null; render(); };
@@ -1538,10 +1719,10 @@ window.startApp = () => {
       el("div", null, el("button", { type: "button", class: "link-btn", text: "‹ Todos los contratos", onclick: () => { L.sel = null; L.edit = null; renderTop(); renderLiq(); } })),
       el("div", { class: "lq-title" }, el("span", { class: "dot" }), el("h2", { text: c.nombre }), el("span", { class: "cd", text: c.codigo }), c.tipo ? el("span", { class: "tag", text: TIPOS[c.tipo] }) : null),
       el("div", { class: "lq-form" },
-        fld("Fase", el("select", { disabled: ro, onchange: (e) => saveContract(c.id, { fase: e.target.value }) }, Object.entries(FASES).map(([k, v]) => el("option", { value: k, text: v, selected: (c.fase || "definir") === k })))),
-        fld("Tipo de contrato", el("select", { disabled: ro, onchange: (e) => saveContract(c.id, { tipo: e.target.value }) }, Object.entries(TIPOS).map(([k, v]) => el("option", { value: k, text: v, selected: (c.tipo || "otro") === k })))),
-        fld("Fecha de terminación", el("input", { type: "date", value: c.fterm || "", disabled: ro, onchange: (e) => saveContract(c.id, { fterm: e.target.value }) })),
-        fld("Plazo pactado para liquidar (meses)", el("input", { type: "number", min: "1", max: "36", value: String(c.plazoMeses || 4), disabled: ro, onchange: (e) => saveContract(c.id, { plazoMeses: Math.max(1, +e.target.value || 4) }) }))));
+        fld("Fase", el("select", { disabled: ro || !S.isOwner, onchange: (e) => saveContract(c.id, { fase: e.target.value }) }, Object.entries(FASES).map(([k, v]) => el("option", { value: k, text: v, selected: (c.fase || "definir") === k })))),
+        fld("Tipo de contrato", el("select", { disabled: ro || !S.isOwner, onchange: (e) => saveContract(c.id, { tipo: e.target.value }) }, Object.entries(TIPOS).map(([k, v]) => el("option", { value: k, text: v, selected: (c.tipo || "otro") === k })))),
+        fld("Fecha de terminación", el("input", { type: "date", value: c.fterm || "", disabled: ro || !S.isOwner, onchange: (e) => saveContract(c.id, { fterm: e.target.value }) })),
+        fld("Plazo pactado para liquidar (meses)", el("input", { type: "number", min: "1", max: "36", value: String(c.plazoMeses || 4), disabled: ro || !S.isOwner, onchange: (e) => saveContract(c.id, { plazoMeses: Math.max(1, +e.target.value || 4) }) }))));
     const parts = [head];
     if ((c.fase || "definir") === "liquidacion" || c.fterm) {
       const lg = legal(c);
@@ -1663,9 +1844,9 @@ window.startApp = () => {
   function agTask(x) {
     const c = cOf(x), late = isLate(x);
     return el("div", { class: "ar" + (x.estado === "hecha" ? " done" : "") + (late ? " late" : ""), style: varsFor(x) },
-      el("input", { type: "checkbox", checked: x.estado === "hecha", disabled: S.readOnly, "aria-label": "Marcar como hecha: " + x.titulo, onchange: (e) => toggleDone(x, e.target.checked) }),
+      el("input", { type: "checkbox", checked: x.estado === "hecha" || x.estado === "revision", disabled: S.readOnly, "aria-label": "Marcar como hecha: " + x.titulo, onchange: (e) => toggleDone(x, e.target.checked) }),
       el("button", { type: "button", class: "tb", onclick: () => openItem(x) }, el("b", { text: x.titulo }),
-        el("small", null, el("span", { class: "cdot" }), (c ? c.nombre : "Sin contrato") + (x.inicio ? " · " + x.inicio : "") + (late ? " · venció " + fmtD(x.fecha) : "") + (x.prio === "alta" ? " · prioridad alta" : "") + (isSeries(x) ? " · ↻" : ""))),
+        el("small", null, el("span", { class: "cdot" }), (c ? c.nombre : "Sin contrato") + (x.inicio ? " · " + x.inicio : "") + (late ? " · venció " + fmtD(x.fecha) : "") + (x.prio === "alta" ? " · prioridad alta" : "") + (x.estado === "revision" ? " · ⧗ en revisión" : "") + (isSeries(x) ? " · ↻" : ""))),
       pb(x.resp));
   }
   function dayName(s) { const t0 = todayISO(); const d = parse(s); const base = DIAS[d.getDay()] + " " + d.getDate() + " " + MESES[d.getMonth()].slice(0, 3); return s === t0 ? "Hoy · " + base : s === iso(addDays(new Date(), 1)) ? "Mañana · " + base : base[0].toUpperCase() + base.slice(1); }
@@ -1681,6 +1862,8 @@ window.startApp = () => {
     const list = el("div", { class: "ag" });
     if (!S.loaded) list.append(el("div", { class: "empty", text: S.db === false ? "Sin conexión con la base de datos." : "Cargando…" }));
     else {
+      if (c >= iso(monday(new Date())) && c <= iso(addDays(monday(new Date()), 6))) list.append(resumenSemana());
+      if (c === t0 && S.isOwner && porRevisar().length) list.append(el("div", { class: "ag-day" }, el("div", { class: "ag-h", style: "color:var(--warn)" }, "Por revisar · " + porRevisar().length), porRevisar().map(revRow)));
       if (c === t0) { const late = pendingTasks().filter(isLate).sort((a, b) => sortKey(a).localeCompare(sortKey(b))); const ll = liqLate(); if (late.length || ll.length) list.append(el("div", { class: "ag-day" }, el("div", { class: "ag-h late" }, "Vencidas · " + (late.length + ll.reduce((a, o) => a + o.n, 0))), late.map(agTask), ll.map((o) => agLiq({ contrato: o.c.id, fecha: "" }, o.n)))); }
       const end = iso(addDays(S.cursor, 13)), range = instancesIn(c, end), lqa = liqDue(c, end);
       for (let i = 0; i < 14; i++) {
@@ -1920,6 +2103,8 @@ window.startApp = () => {
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
     const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera");
+    const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
+    foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
     foot.append(pw);
     const out = document.createElement("button"); out.type = "button"; out.className = "btn"; out.textContent = "Cerrar sesión";
@@ -1929,6 +2114,42 @@ window.startApp = () => {
   }
   async function abrirAccesos() {
     const d = $("dlg-acc"); await pintarAccesos(); await pintarFuentes(); $("acc-err").hidden = true; $("ol-err").hidden = true; d.showModal();
+  }
+
+  // ---------- Recordatorios al celular (notificaciones push) ----------
+  const aviso2 = (t) => { const x = document.getElementById("toast"); if (!x) return; x.textContent = t; x.hidden = false; clearTimeout(aviso2._t); aviso2._t = setTimeout(() => (x.hidden = true), 5000); };
+  const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const instalada = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const b64u8 = (b) => { const p = "=".repeat((4 - (b.length % 4)) % 4); const r = atob((b + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from([...r].map((c) => c.charCodeAt(0))); };
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  async function estadoRecordatorios() {
+    const b = $("btn-push"); if (!b) return;
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || Notification.permission !== "granted") return;
+      const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+      if (sub) { b.textContent = "🔔 Recordatorios activos · probar"; b.dataset.on = "1"; }
+    } catch (_) {}
+  }
+  async function activarRecordatorios() {
+    const b = $("btn-push");
+    if (b.dataset.on) { const r = await sb.functions.invoke("recordatorios", { body: { op: "prueba" } }); aviso2(r.error ? "No se pudo enviar la prueba." : "Te enviamos una notificación de prueba."); return; }
+    if (esIOS && !instalada) { aviso2("En iPhone, abre la agenda desde el ícono de tu pantalla de inicio y activa ahí los recordatorios."); return; }
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) { aviso2("Este navegador no permite notificaciones. Prueba con Chrome, Edge o la app instalada."); return; }
+    b.disabled = true; b.textContent = "Activando…";
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { aviso2("No diste permiso de notificaciones. Puedes activarlo en la configuración del navegador o del teléfono."); return; }
+      const reg = await navigator.serviceWorker.register("sw.js"); await navigator.serviceWorker.ready;
+      const k = await sb.functions.invoke("recordatorios", { body: { op: "clave" } });
+      if (k.error || !k.data || !k.data.clave) throw new Error("Falta crear la función de recordatorios en Supabase");
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u8(k.data.clave) });
+      const g = await sb.from("push_subs").upsert({ endpoint: sub.endpoint, sub: sub.toJSON(), dispositivo: navigator.userAgent.slice(0, 160) });
+      if (g.error) throw g.error;
+      await sb.functions.invoke("recordatorios", { body: { op: "prueba" } });
+      b.dataset.on = "1"; aviso2("Recordatorios activos en este dispositivo. Te llegó una notificación de prueba.");
+    } catch (e) { aviso2("No se pudieron activar: " + (e.message || "error")); }
+    finally { b.disabled = false; if (!b.dataset.on) b.textContent = "🔔 Activar recordatorios"; else b.textContent = "🔔 Recordatorios activos · probar"; }
   }
 
   // ---------- Outlook: calendarios publicados (enlace ICS) ----------
