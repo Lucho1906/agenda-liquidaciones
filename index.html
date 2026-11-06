@@ -800,6 +800,8 @@ window.startApp = () => {
     const pend = (() => { const save = S.hideC, saveS = S.show; S.hideC = {}; S.show = { p1: true, p2: true, ambos: true }; const p = pendingTasks(); const m = instancesIn(t0, t7).filter((x) => x.tipo === "reunion"); S.hideC = save; S.show = saveS; return p.concat(m); })();
     const cnt = (f) => S.loaded ? String(pend.filter(f).length || "") : "";
     $("c-p1").textContent = cnt((x) => x.resp === "p1"); $("c-p2").textContent = cnt((x) => x.resp === "p2"); $("c-both").textContent = cnt((x) => x.resp === "ambos");
+    const todosOcultos = S.contracts.length && S.contracts.every((c) => S.hideC[c.id]) && S.hideC._none;
+    $("c-all").textContent = todosOcultos ? "Ver todos" : "Ocultar todos";
     const list = $("clist"); list.replaceChildren();
     const rows = S.contracts.filter((c) => !c.archivado || S.items.some((x) => x.contrato === c.id)).map((c) => [c.id, c.color, c.nombre, c.codigo]);
     if (S.items.some((x) => !x.contrato)) rows.push(["_none", NONE, "Sin contrato", ""]);
@@ -1704,7 +1706,12 @@ window.startApp = () => {
     const lista2 = lista.map(keep);
     try { await S.db.doc("config/contratos").set({ lista: lista2 }); if (JSON.stringify(lista2.map((c) => [c.id, c.codigo, c.nombre, c.color, !!c.archivado])) !== before) log("contrato", { tipo: "contrato", titulo: "Lista de contratos", id: "config" }, lista2.length + " contratos · " + lista2.filter((c) => c.archivado).length + " archivados"); $("dlg-c").close(); toast("Contratos guardados"); } catch (e) { $("c-err").textContent = writeErr(e); $("c-err").hidden = false; }
   });
-  $("c-all").onclick = () => { S.hideC = {}; renderSideCounts(); renderView(); };
+  $("c-all").onclick = () => {
+    const ids = S.contracts.map((c) => c.id).concat(["_none"]);
+    const algunoVisible = ids.some((id) => !S.hideC[id]);
+    S.hideC = {}; if (algunoVisible) ids.forEach((id) => (S.hideC[id] = true));
+    renderSideCounts(); renderView();
+  };
 
   render(); renderQuick(); connect();
 };
