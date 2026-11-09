@@ -895,7 +895,9 @@ window.startApp = () => {
   // Lo que dice Outlook de la reunión cuando no está confirmada (sin responder, provisional o libre)
   const olEstado = (e) => e.estado === "TENTATIVE" || e.respuesta === "TENTATIVE" || e.ocupado === "TENTATIVE" ? "Provisional en Outlook" : e.respuesta === "NEEDS-ACTION" ? "Sin responder en Outlook" : e.ocupado === "FREE" ? "Marcada como libre en Outlook" : "";
   function mergeOl() {
-    const ol = S.ol.map(({ id, e }) => { const aj = S.olaj[id] || {}; if (aj.oculto || CANCELADO.test(e.titulo || "") || e.estado === "CANCELLED" || e.respuesta === "DECLINED" || (e.ocupado === "FREE" && !e.todoElDia)) return null; // Outlook deja como «Libre» las reuniones canceladas
+    const vistas = new Set(); // la misma reunión puede venir de varios calendarios: se muestra una sola vez
+    const ol = S.ol.slice().sort((a, b) => (a.id < b.id ? -1 : 1)).map(({ id, e }) => { const aj = S.olaj[id] || {};
+      if (e.uid) { const k = e.uid + "|" + e.fecha + "|" + (e.inicio || ""); if (vistas.has(k)) return null; vistas.add(k); } if (aj.oculto || CANCELADO.test(e.titulo || "") || e.estado === "CANCELLED" || e.respuesta === "DECLINED" || (e.ocupado === "FREE" && !e.todoElDia)) return null; // Outlook deja como «Libre» las reuniones canceladas
       const regla = REGLAS_OL.find((r) => r.re.test(fold(e.titulo || "")));
       return { id: "ol:" + id, olid: id, origen: "outlook", tipo: "reunion", titulo: e.titulo || "(Sin asunto)", fecha: e.fecha, inicio: e.todoElDia ? "" : e.inicio, fin: e.todoElDia ? "" : e.fin, todoElDia: !!e.todoElDia,
         lugar: e.lugar || "", resp: regla ? regla.resp : (aj.resp || e.respDefecto || "p1"), destacado: !!(regla && regla.destacado), etiqueta: regla ? regla.etiqueta : "", contrato: aj.contrato != null ? aj.contrato : guessContrato(e.titulo + " " + (e.lugar || "")), fuente: e.fuenteNombre || "Outlook", organizador: e.organizador || "", estado: "", notas: "", olEstado: olEstado(e), prov: !!olEstado(e) }; }).filter(Boolean);
