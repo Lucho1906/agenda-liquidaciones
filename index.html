@@ -507,6 +507,7 @@ select.est { -webkit-appearance: none; appearance: none; border: 1px solid color
 .lq-ed .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
 .lq-ed .acts div { display: flex; gap: 8px; flex-wrap: wrap; }
 .lq-add { display: flex; gap: 8px; padding: 4px 6px 8px 34px; }
+.lq-add.p { padding-left: 6px; }
 .lq-add input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 7px 9px; }
 .chip .lq, .ar .lq { font-weight: 700; color: var(--c); flex: none; }
 @media (max-width: 700px) {
@@ -1747,16 +1748,16 @@ window.startApp = () => {
     const cur = steps.find(([, d]) => d >= t0) || null;
     return { steps, cur, days: cur ? daysBetween(t0, cur[1]) : null };
   }
-  const pickMod = (m) => { const o = {}; ["s", "pl", "rp", "ri", "o", "oculto", "q"].forEach((k) => { if (k in m) o[k] = m[k]; }); return o; };
+  const pickMod = (m) => { const o = {}; ["s", "pl", "rp", "ri", "o", "oculto", "q", "eliminado"].forEach((k) => { if (k in m) o[k] = m[k]; }); return o; };
   function liqItems(cid) {
     const base = (S.liq[cid] && S.liq[cid].items) || [];
     const mods = Object.values(S.liqmod).filter((m) => m.cid === cid);
     const byRow = {}; mods.forEach((m) => { if (!m.nuevo) byRow[m.row] = m; });
     const extras = mods.filter((m) => m.nuevo).sort((a, b) => (a.creada || a.t || "").localeCompare(b.creada || b.t || ""));
     const out = [];
-    const pushExtras = (row, depth) => { if (depth > 20) return; extras.filter((m) => m.despues === row).forEach((m) => { out.push(Object.assign({ r: m.row, n: m.n || "e", et: m.et || "", a: m.a || "", s: "EN PROCESO", nuevo: true }, pickMod(m))); pushExtras(m.row, depth + 1); }); };
+    const pushExtras = (row, depth) => { if (depth > 20) return; extras.filter((m) => m.despues === row).sort((a, b) => (a.n === "p") - (b.n === "p")).forEach((m) => { out.push(Object.assign({ r: m.row, n: m.n || "e", et: m.et || "", a: m.a || "", s: "EN PROCESO", nuevo: true }, pickMod(m))); pushExtras(m.row, depth + 1); }); };
     base.forEach((it) => { const m = byRow[it.r]; out.push(m ? Object.assign({}, it, pickMod(m)) : it); pushExtras(it.r, 0); });
-    return out;
+    return out.filter((x) => !x.eliminado);
   }
   function annotate(items0) {
     // En algunas listas los entregables aparecen antes de su requisito principal: se ubican debajo de él.
@@ -1849,11 +1850,25 @@ window.startApp = () => {
     if (hijos.length) log("liq", { tipo: "liq", titulo: p.q, id: c.id + "__" + p.r }, c.codigo + " · " + hijos.length + (hijos.length === 1 ? " entregable pasó" : " entregables pasaron") + " automáticamente a " + (EST_L[nuevo] || nuevo) + ": " + hijos.map((y) => y.q).join(", ").slice(0, 300));
     return hijos.length;
   }
-  async function addLiqItem(c, p, anchor, text) {
+  async function addLiqItem(c, p, anchor, text, n) {
     if (S.readOnly || !S.db || !text.trim()) return;
+    n = n || "e";
+    // un requisito principal nuevo va después del último entregable del principal de referencia
+    if (n === "p") { const ks = annotate(liqItems(c.id)).filter((y) => y.n === "e" && y.p === p.r); anchor = ks.length ? ks[ks.length - 1].r : p.r; }
     const row = "n" + Date.now().toString(36), key = c.id + "__" + row, now = new Date().toISOString();
-    const data = { cid: c.id, row, nuevo: true, despues: anchor, n: "e", et: p.et || "", a: p.a || "", q: text.trim(), s: "EN PROCESO", pl: "", rp: "", ri: "", o: "", oculto: false, creada: now, t: now, uid: S.uid || "" };
-    try { await S.db.doc("liqmod/" + key).set(data); log("liq", { tipo: "liq", titulo: text.trim(), id: key }, c.codigo + " · nuevo entregable en " + p.q); L.add = null; toast("Entregable agregado"); } catch (e) { toast(writeErr(e)); }
+    const data = { cid: c.id, row, nuevo: true, despues: anchor, n, et: p.et || "", a: p.a || "", q: text.trim(), s: "EN PROCESO", pl: "", rp: "", ri: "", o: "", oculto: false, creada: now, t: now, uid: S.uid || "" };
+    try { await S.db.doc("liqmod/" + key).set(data); log("liq", { tipo: "liq", titulo: text.trim(), id: key }, c.codigo + (n === "p" ? " · nuevo requisito principal después de " : " · nuevo entregable en ") + p.q); L.add = null; L.addP = null; toast(n === "p" ? "Requisito agregado" : "Entregable agregado"); } catch (e) { toast(writeErr(e)); }
+  }
+  // Eliminar (solo coordinador): queda marcado como eliminado, no se borra de la base, y se registra en el historial
+  async function delLiqItem(c, x) {
+    if (S.readOnly || !S.db || !S.isOwner) return;
+    const its = annotate(liqItems(c.id)), hijos = x.n === "p" ? its.filter((y) => y.n === "e" && y.p === x.r) : [];
+    const t = new Date().toISOString();
+    try {
+      for (const y of [x, ...hijos]) { const k = c.id + "__" + y.r, pv = S.liqmod[k] || {}; await S.db.doc("liqmod/" + k).set(Object.assign({}, pv, { cid: c.id, row: y.r, eliminado: true, t, uid: S.uid || "" })); }
+      log("liq", { tipo: "liq", titulo: x.q, id: c.id + "__" + x.r }, c.codigo + " · eliminó " + (x.n === "p" ? "el requisito principal" : "el entregable") + " «" + x.q + "»" + (hijos.length ? " y sus " + hijos.length + " entregables" : ""));
+      L.edit = null; toast(hijos.length ? "Eliminado junto con " + hijos.length + (hijos.length === 1 ? " entregable" : " entregables") : "Eliminado");
+    } catch (e) { toast(writeErr(e)); }
   }
 
   function renderLiq() {
@@ -1985,7 +2000,7 @@ window.startApp = () => {
     items.forEach((x) => {
       if (x.n === "x") return;
       if (x.n === "g") { if (!filtering || grpHas(x.r)) { if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } list.append(el("div", { class: "lq-g" }, el("span", { text: x.q }), estSel(c, x))); } return; }
-      if (x.n === "p") { if (!visP.has(x.r)) return; if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } shown++; list.append(liqRow(c, x, kids[x.r] || [], filtering, filtering && ctxP.has(x.r))); if (L.edit === x.r) list.append(liqEditor(c, x)); return; }
+      if (x.n === "p") { if (!visP.has(x.r)) return; if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } shown++; list.append(liqRow(c, x, kids[x.r] || [], filtering, filtering && ctxP.has(x.r))); if (L.edit === x.r) list.append(liqEditor(c, x)); if (L.addP === x.r) list.append(addRow(c, x, x.r, "p")); return; }
       if (x.n === "e") { const open = isOpen(x.p); if (!x.p) { if (!visE.has(x.r)) return; } else if (!open || !visE.has(x.r) || !visP.has(x.p)) return; shown++; list.append(liqRow(c, x, null, filtering)); if (L.edit === x.r) list.append(liqEditor(c, x));
         const sib = kids[x.p] || []; if (L.add === x.p && sib[sib.length - 1] === x) list.append(addRow(c, items.find((y) => y.r === x.p), x.r)); }
     });
@@ -2024,15 +2039,18 @@ window.startApp = () => {
       el("div", { class: "field full" }, el("label", { text: "Observaciones" }), o),
       el("div", { class: "acts" },
         el("div", null, el("button", { type: "button", class: "btn", disabled: ro, text: x.oculto ? "Sí aplica" : "No aplica", onclick: () => { saveLiq(c, x, { oculto: !x.oculto }); L.edit = null; } }),
-          x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar entregable", onclick: () => { L.add = x.r; L.open[x.r] = true; L.edit = null; renderLiq(); } }) : null),
+          x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar entregable", onclick: () => { L.add = x.r; L.open[x.r] = true; L.edit = null; renderLiq(); } }) : null,
+          x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar requisito principal", title: "Se agrega debajo de este requisito y sus entregables", onclick: () => { L.addP = x.r; L.add = null; L.open[x.r] = false; L.edit = null; renderLiq(); } }) : null,
+          S.isOwner ? el("button", { type: "button", class: "btn danger", disabled: ro, text: "Eliminar", title: x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } delLiqItem(c, x); } }) : null),
         el("div", null, el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.edit = null; renderLiq(); } }),
           el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; saveLiq(c, x, { pl: pl.value, rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim() }); } }))));
   }
-  function addRow(c, p, anchor) {
-    const inp = el("input", { placeholder: "Nuevo entregable de \"" + p.q.slice(0, 40) + "\"", maxlength: "200", "aria-label": "Nuevo entregable" });
-    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addLiqItem(c, p, anchor, inp.value); } if (e.key === "Escape") { L.add = null; renderLiq(); } });
+  function addRow(c, p, anchor, n) {
+    const inp = el("input", { placeholder: n === "p" ? "Nuevo requisito principal (va después de \"" + p.q.slice(0, 40) + "\")" : "Nuevo entregable de \"" + p.q.slice(0, 40) + "\"", maxlength: "200", "aria-label": n === "p" ? "Nuevo requisito principal" : "Nuevo entregable" });
+    const salir = () => { L.add = null; L.addP = null; renderLiq(); };
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addLiqItem(c, p, anchor, inp.value, n); } if (e.key === "Escape") salir(); });
     setTimeout(() => inp.focus(), 0);
-    return el("div", { class: "lq-add" }, inp, el("button", { type: "button", class: "btn primary", text: "Agregar", onclick: () => addLiqItem(c, p, anchor, inp.value) }), el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.add = null; renderLiq(); } }));
+    return el("div", { class: "lq-add" + (n === "p" ? " p" : "") }, inp, el("button", { type: "button", class: "btn primary", text: "Agregar", onclick: () => addLiqItem(c, p, anchor, inp.value, n) }), el("button", { type: "button", class: "btn", text: "Cancelar", onclick: salir }));
   }
 
   // ---------- agenda (lista por días, pensada para celular) ----------
@@ -2184,6 +2202,16 @@ window.startApp = () => {
   }
 
   // ---------- base de datos con la forma colección / documento ----------
+  // Supabase entrega máximo 1.000 filas por consulta: se leen por páginas hasta traerlas todas
+  async function todas(tabla) {
+    const out = [], PAG = 1000;
+    for (let i = 0; i < 50; i++) {
+      const r = await sb.from(tabla).select("id,data").order("id", { ascending: true }).range(i * PAG, i * PAG + PAG - 1);
+      if (r.error) return r;
+      out.push(...r.data); if (r.data.length < PAG) break;
+    }
+    return { data: out, error: null };
+  }
   function coleccion(nombre) {
     if (nombre === "historial") return { limit() { return this; }, onSnapshot(next) { next({ docs: yo && yo.rol === "coordinador" ? [{ id: "todos", data: () => ({}) }] : [] }); return () => {}; } };
     if (nombre.startsWith("historial/")) return historialQuery();
@@ -2191,10 +2219,11 @@ window.startApp = () => {
     if (!TABLAS.includes(tabla)) throw { code: "invalid_argument", message: "Colección desconocida: " + nombre };
     const q = {
       limit() { return q; }, orderBy() { return q; }, where() { return q; },
-      async get() { return snapDocs(ok(await sb.from(tabla).select("id,data").limit(5000))); },
+      async get() { const r = await todas(tabla); return snapDocs(ok(r)); },
       onSnapshot(next, onErr) {
         let vivo = true;
-        const cargar = async () => { const r = await sb.from(tabla).select("id,data").limit(5000); if (!vivo) return; if (r.error) { aviso(r.error, tabla); if (onErr) onErr(err(r.error)); return; } window.__diag[tabla] = r.data.length; console.info("Supabase", tabla, r.data.length, "filas"); next(snapDocs(r.data)); };
+        let turno = 0; // si llegan dos lecturas cruzadas, solo cuenta la más reciente
+        const cargar = async () => { const mio = ++turno; const r = await todas(tabla); if (!vivo || mio !== turno) return; if (r.error) { aviso(r.error, tabla); if (onErr) onErr(err(r.error)); return; } window.__diag[tabla] = r.data.length; console.info("Supabase", tabla, r.data.length, "filas"); next(snapDocs(r.data)); };
         cargar(); const off = escuchar(tabla, demorar(cargar, 250));
         return () => { vivo = false; off(); };
       },
