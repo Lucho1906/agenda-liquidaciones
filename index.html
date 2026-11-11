@@ -1849,11 +1849,11 @@ window.startApp = () => {
     return { s: EST[min], q: p.q };
   }
   // Avance: los entregables atrasados suben al estado del principal (salvo excepciones).
-  // Retroceso: los que van por delante vuelven con él, salvo los ya aprobados (IDU o ESP).
+  // Retroceso: todos los que van por delante vuelven con él, aunque estén aprobados.
   async function arrastrarEntregables(c, p, nuevo, antes) {
     const rank = (s) => EST.indexOf(s), rN = rank(nuevo); if (rN < 0) return 0;
     const baja = rank(antes) > rN, exc = (y) => !!(S.liqmod[c.id + "__" + y.r] || {}).excepcion;
-    const hijos = annotate(liqItems(c.id)).filter((y) => y.n === "e" && y.p === p.r && !y.oculto && (baja ? !cerrado(y.s) && (rank(y.s) > rN || (rank(y.s) === rN && exc(y))) : rank(y.s) < rN && !exc(y)));
+    const hijos = annotate(liqItems(c.id)).filter((y) => y.n === "e" && y.p === p.r && !y.oculto && (baja ? (rank(y.s) > rN || (rank(y.s) === rN && exc(y))) : rank(y.s) < rN && !exc(y)));
     for (const y of hijos) {
       const k = c.id + "__" + y.r, pv = S.liqmod[k] || {};
       const d = Object.assign({ cid: c.id, row: y.r, s: nuevo, pl: y.pl || "", rp: y.rp || "", ri: y.ri || "", o: y.o || "", oculto: !!y.oculto },
@@ -2356,7 +2356,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 10:43";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 10:55";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
