@@ -508,6 +508,8 @@ select.est { -webkit-appearance: none; appearance: none; border: 1px solid color
 .lq-ed .acts div { display: flex; gap: 8px; flex-wrap: wrap; }
 .lq-add { display: flex; gap: 8px; padding: 4px 6px 8px 34px; }
 .lq-add.p { padding-left: 6px; }
+.lq-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.lq-acts .btn { padding: 3px 9px; font-size: 11.5px; }
 .lq-add input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 7px 9px; }
 .chip .lq, .ar .lq { font-weight: 700; color: var(--c); flex: none; }
 @media (max-width: 700px) {
@@ -1976,6 +1978,7 @@ window.startApp = () => {
           el("div", { class: "lq-views", role: "group", "aria-label": "Nivel de detalle", style: "padding:3px" },
             el("button", { type: "button", "aria-pressed": String(!L.expandAll), onclick: () => { L.expandAll = false; L.open = {}; renderLiq(); } }, "Solo principales"),
             el("button", { type: "button", "aria-pressed": String(L.expandAll), onclick: () => { L.expandAll = true; L.open = {}; renderLiq(); } }, "Con entregables")),
+          S.readOnly ? null : el("button", { type: "button", class: "btn" + (L.editList ? " primary" : ""), style: "padding:5px 10px;font-size:12px", "aria-pressed": String(!!L.editList), title: "Agregar requisitos y entregables" + (S.isOwner ? ", o eliminarlos" : ""), text: L.editList ? "Listo, terminar edición" : "✎ Editar lista", onclick: () => { L.editList = !L.editList; L.add = null; L.addP = null; renderLiq(); } }),
           hiddenN ? el("label", null, el("input", { type: "checkbox", checked: L.showHidden, onchange: (e) => { L.showHidden = e.target.checked; renderLiq(); } }), " Ver los que no aplican (" + hiddenN + ")") : null,
           activos.length ? el("button", { type: "button", class: "btn", style: "padding:5px 10px;font-size:12px", text: "Quitar filtros", onclick: () => { L.plazo = ""; L.est = ""; L.area = ""; L.vista = ""; L.q = ""; renderLiq(); } }) : null))));
     parts.push(liqList(c, items));
@@ -2025,8 +2028,17 @@ window.startApp = () => {
           x.rp ? el("span", { text: x.rp }) : null,
           x.pl ? el("span", { class: late ? "late" : "", text: (late ? "Venció " : "Plazo ") + fmtD(x.pl) }) : (x.plt ? el("span", { text: x.plt }) : null),
           x.oculto ? el("span", { text: "No aplica" }) : null,
-          x.o ? el("span", { class: "obs", text: x.o.length > 110 ? x.o.slice(0, 110) + "…" : x.o, title: x.o }) : null)),
+          x.o ? el("span", { class: "obs", text: x.o.length > 110 ? x.o.slice(0, 110) + "…" : x.o, title: x.o }) : null),
+        L.editList && !S.readOnly ? rowActs(c, x) : null),
       estSel(c, x));
+  }
+  // Botones visibles en «Editar lista»
+  function rowActs(c, x) {
+    const b = (text, title, fn, cls) => el("button", { type: "button", class: "btn" + (cls ? " " + cls : ""), title, text, onclick: (e) => { e.stopPropagation(); fn(e); } });
+    return el("div", { class: "lq-acts" },
+      x.n === "p" ? b("+ Entregable", "Agregar un entregable a este requisito", () => { L.add = x.r; L.addP = null; L.open[x.r] = true; renderLiq(); }) : null,
+      x.n === "p" ? b("+ Requisito debajo", "Agregar un requisito principal debajo de este y sus entregables", () => { L.addP = x.r; L.add = null; L.open[x.r] = false; renderLiq(); }) : null,
+      S.isOwner ? b("Eliminar", x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", (e) => { const t = e.target; if (!t.classList.contains("armed")) { t.classList.add("armed"); t.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } delLiqItem(c, x); }, "danger") : null);
   }
   function liqEditor(c, x) {
     const ro = S.readOnly;
