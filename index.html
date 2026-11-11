@@ -352,6 +352,9 @@ dialog { overflow: auto; }
 .vip { background: repeating-linear-gradient(135deg, #facc15 0 12px, #eab308 12px 24px) !important; color: #1c1600 !important; border-left-color: #fff7cc !important; box-shadow: 0 0 0 2px #fde68a, 0 6px 18px rgb(250 204 21 / .25); }
 .vip b, .vip i, .vip small, .vip .tx, .vip .tm { color: #1c1600 !important; opacity: 1 !important; }
 .vip .pb { background: rgb(0 0 0 / .78); color: #fde68a; }
+.vip.vip-celeste { background: repeating-linear-gradient(135deg, #7dd3fc 0 12px, #38bdf8 12px 24px) !important; color: #04202e !important; border-left-color: #e0f2fe !important; box-shadow: 0 0 0 2px #bae6fd, 0 6px 18px rgb(56 189 248 / .25); }
+.vip.vip-celeste b, .vip.vip-celeste i, .vip.vip-celeste small, .vip.vip-celeste .tx, .vip.vip-celeste .tm, .vip.vip-celeste .vip-tag { color: #04202e !important; }
+.vip.vip-celeste .pb { color: #bae6fd; }
 .vip-tag { font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #1c1600; }
 dialog::backdrop { background: rgb(0 0 0 / .55); }
 .dlg { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
@@ -901,6 +904,19 @@ window.startApp = () => {
   }
   // Reglas fijas para reuniones de Outlook: el comité gerencial (comité interno) siempre del coordinador y destacado.
   const REGLAS_OL = [{ re: /comite\s+interno/, resp: "p1", destacado: true, etiqueta: "Comité gerencial" }];
+  // Reuniones propias destacadas por su título (se ven como el comité, en otro color)
+  const REGLAS_PROPIAS = [{ re: /revision\s+(semanal\s+)?de\s+liquidaciones/, destacado: true, etiqueta: "Revisión semanal", variante: "celeste" }];
+  const vipCls = (x) => x.destacado ? " vip" + (x.variante ? " vip-" + x.variante : "") : "";
+  const conRegla = (x) => { if (x.tipo !== "reunion") return x; const r = REGLAS_PROPIAS.find((g) => g.re.test(fold(x.titulo || ""))); return r ? Object.assign({}, x, { destacado: true, etiqueta: r.etiqueta, variante: r.variante }) : x; };
+  // Reunión fija de los viernes 10:00 (coordinador e ingeniera); se crea una sola vez con un id fijo
+  const REV_ID = "rev-liq-viernes";
+  async function sembrarRevision() {
+    if (!S.isOwner || S.readOnly || !S.db || S.base.some((x) => x.id === REV_ID) || sembrarRevision.hecho) return;
+    sembrarRevision.hecho = true;
+    let d = new Date(); while (d.getDay() !== 5) d = addDays(d, 1);
+    const data = buildData({ tipo: "reunion", titulo: "Revisión semanal de liquidaciones", resp: "ambos", fecha: iso(d), inicio: "10:00", fin: "11:00", lugar: "", notas: "Revisión de liquidaciones entre el coordinador y la ingeniera.", freq: "semanal", origen: "manual" }, null);
+    try { await S.db.doc("agenda/" + REV_ID).set(data); log("crear", Object.assign({ id: REV_ID }, data)); } catch (e) { sembrarRevision.hecho = false; }
+  }
   const CANCELADO = /^\s*(evento\s+)?(cancelad[oa]|canceled|cancelled)\s*:/i;
   // Lo que dice Outlook de la reunión cuando no está confirmada (sin responder, provisional o libre)
   const olEstado = (e) => e.estado === "TENTATIVE" || e.respuesta === "TENTATIVE" || e.ocupado === "TENTATIVE" ? "Provisional en Outlook" : e.respuesta === "NEEDS-ACTION" ? "Sin responder en Outlook" : e.ocupado === "FREE" ? "Marcada como libre en Outlook" : "";
@@ -911,7 +927,7 @@ window.startApp = () => {
       const regla = REGLAS_OL.find((r) => r.re.test(fold(e.titulo || "")));
       return { id: "ol:" + id, olid: id, origen: "outlook", tipo: "reunion", titulo: e.titulo || "(Sin asunto)", fecha: e.fecha, inicio: e.todoElDia ? "" : e.inicio, fin: e.todoElDia ? "" : e.fin, todoElDia: !!e.todoElDia,
         lugar: e.lugar || "", resp: regla ? regla.resp : (aj.resp || e.respDefecto || "p1"), destacado: !!(regla && regla.destacado), etiqueta: regla ? regla.etiqueta : "", contrato: aj.contrato != null ? aj.contrato : guessContrato(e.titulo + " " + (e.lugar || "")), fuente: e.fuenteNombre || "Outlook", organizador: e.organizador || "", estado: "", notas: "", olEstado: olEstado(e), prov: !!olEstado(e) }; }).filter(Boolean);
-    S.items = S.base.concat(ol);
+    S.items = S.base.map(conRegla).concat(ol);
   }
   const cOf = (x) => S.contracts.find((c) => c.id === x.contrato) || null;
   const cColor = (x) => { const c = cOf(x); return c ? c.color : NONE; };
@@ -1009,7 +1025,7 @@ window.startApp = () => {
   }
 
   function taskChip(x) {
-    return dragSrc(el("button", { type: "button", class: "chip" + (x.estado === "hecha" ? " done" : "") + (x.estado === "revision" ? " revc" : "") + (isLate(x) ? " late" : "") + (x.destacado ? " vip" : "") + (x.prov ? " prov" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo + (x.olEstado ? "\n" + x.olEstado : "") + (isSeries(x) ? "\n" + repLabel(x.rep.freq, (x._series || x).fecha) : ""), onclick: (e) => { e.stopPropagation(); openItem(x); } },
+    return dragSrc(el("button", { type: "button", class: "chip" + (x.estado === "hecha" ? " done" : "") + (x.estado === "revision" ? " revc" : "") + (isLate(x) ? " late" : "") + vipCls(x) + (x.prov ? " prov" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo + (x.olEstado ? "\n" + x.olEstado : "") + (isSeries(x) ? "\n" + repLabel(x.rep.freq, (x._series || x).fecha) : ""), onclick: (e) => { e.stopPropagation(); openItem(x); } },
       x.tipo === "reunion" ? el("span", { class: "lq", text: "◷" }) : el("span", { class: "bx" }), el("span", { class: "tx", style: "flex:1", text: (x.inicio ? x.inicio + " " : "") + x.titulo }), repMark(x), pb(x.resp)), x);
   }
 
@@ -1080,7 +1096,7 @@ window.startApp = () => {
       col.addEventListener("click", (e) => { if (dragging || (e.target !== col && !e.target.classList.contains("hl"))) return; const r = col.getBoundingClientRect(); const mins = Math.max(H0 * 60, Math.min((H1 - 1) * 60, Math.floor(((e.clientY - r.top) / H * 60 + H0 * 60) / 30) * 30)); openNew({ tipo: "reunion", fecha: s, inicio: hm(mins) }); });
       layoutDay(vis.filter((x) => x.tipo === "reunion" && x.fecha === s && x.inicio)).forEach((it) => {
         const m = it.m, top = (it.s - H0 * 60) / 60 * H, ht = Math.max(20, (it.e - it.s) / 60 * H - 3), w = 100 / it.n, c = cOf(m);
-        const node = el("button", { type: "button", class: "mt" + (canDrag(m) ? " drag" : "") + (m.destacado ? " vip" : "") + (m.prov ? " prov" : ""), style: varsFor(m) + ";top:" + (top + 1) + "px;height:" + ht + "px;left:calc(" + (it.lane * w) + "% + 2px);width:calc(" + w + "% - 4px)",
+        const node = el("button", { type: "button", class: "mt" + (canDrag(m) ? " drag" : "") + vipCls(m) + (m.prov ? " prov" : ""), style: varsFor(m) + ";top:" + (top + 1) + "px;height:" + ht + "px;left:calc(" + (it.lane * w) + "% + 2px);width:calc(" + w + "% - 4px)",
             title: m.titulo + " · " + m.inicio + (m.fin ? "–" + m.fin : "") + "\n" + pname(m.resp) + " · " + cLabel(c) + (isSeries(m) ? "\n" + repLabel(m.rep.freq, m._series.fecha) : (canDrag(m) ? "\nArrastra para mover; estira el borde inferior para cambiar la duración" : "")),
             onclick: (e) => { e.stopPropagation(); if (e.detail === 0) openItem(m); } },
           m.destacado ? el("span", { class: "vip-tag", text: "★ " + m.etiqueta }) : null,
@@ -1112,7 +1128,7 @@ window.startApp = () => {
       const items = vis.filter((x) => x.fecha === s).sort((p, q) => (p.tipo === "reunion" ? 0 : 1) - (q.tipo === "reunion" ? 0 : 1) || sortKey(p).localeCompare(sortKey(q)));
       const cell = dropTarget(el("div", { class: "mc" + (inM ? "" : " out") + (s === t0 ? " today" : "") + (f ? " festd" : ""), onclick: () => { if (isMobile()) { S.cursor = d; setView("agenda"); } else openNew({ tipo: "tarea", fecha: s }); } },
         el("div", { class: "num" }, el("b", { text: String(d.getDate()) }), f ? el("em", { text: f }) : null), el("span", { class: "mdots" }, items.concat(lq).slice(0, 6).map((x) => el("i", { style: "background:" + (isLate(x) ? "var(--late)" : cColor(x)) })))), s);
-      items.slice(0, 4).forEach((x) => cell.append(dragSrc(el("button", { type: "button", class: "mi" + (x.tipo === "reunion" ? " meet" : "") + (x.destacado ? " vip" : "") + (x.prov ? " prov" : "") + (x.estado === "hecha" ? " done" : "") + (isLate(x) ? " late" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo, onclick: (e) => { e.stopPropagation(); openItem(x); } },
+      items.slice(0, 4).forEach((x) => cell.append(dragSrc(el("button", { type: "button", class: "mi" + (x.tipo === "reunion" ? " meet" : "") + vipCls(x) + (x.prov ? " prov" : "") + (x.estado === "hecha" ? " done" : "") + (isLate(x) ? " late" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo, onclick: (e) => { e.stopPropagation(); openItem(x); } },
         x.tipo === "reunion" ? el("span", { class: "tm", text: x.inicio || "" }) : el("span", { class: "bx" }), el("span", { class: "tx", text: x.titulo }), repMark(x)), x)));
       lq.forEach((x) => cell.append(el("button", { type: "button", class: "mi" + (s < t0 ? " late" : ""), style: varsFor(x), title: x.titulo, onclick: (e) => { e.stopPropagation(); openLiq(x.contrato, s); } }, el("span", { class: "tm", text: "§" }), el("span", { class: "tx", text: x.titulo }))));
       if (items.length > 4) cell.append(el("span", { class: "more", text: "+" + (items.length - 4) + " más" }));
@@ -1688,7 +1704,7 @@ window.startApp = () => {
     db.doc("config/equipo").onSnapshot((s) => { const d = s.exists ? s.data() : null; if (d) { S.people = { p1: d.p1 || "Coordinador", p2: d.p2 || "Ingeniera" }; render(); } }, () => {});
     db.collection("outlook").limit(5000).onSnapshot((snap) => { S.ol = snap.docs.map((d) => ({ id: d.id, e: d.data() })); mergeOl(); if (S.loaded) render(); }, () => {});
     db.collection("outlook_ajustes").limit(5000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.olaj = o; mergeOl(); if (S.loaded) render(); }, () => {});
-    db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.base = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); mergeOl(); S.loaded = true; setStatus(); render(); },
+    db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.base = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); mergeOl(); S.loaded = true; setStatus(); render(); sembrarRevision(); },
       (e) => { clearTimeout(timer); if (e && (e.code === "revoked" || e.code === "not_granted")) S.db = false; setStatus("No se pudo cargar la agenda."); render(); });
     db.collection("liq").limit(50).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liq = o; if (S.loaded) render(); }, () => {});
     db.collection("liqmod").limit(1000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liqmod = o; if (S.loaded) render(); }, () => {});
@@ -2130,7 +2146,7 @@ window.startApp = () => {
   const isMobile = () => window.matchMedia("(max-width: 700px)").matches;
   function agMeet(x) {
     const c = cOf(x);
-    return el("button", { type: "button", class: "ar meet" + (x.destacado ? " vip" : "") + (x.prov ? " prov" : ""), style: varsFor(x), onclick: () => openItem(x) },
+    return el("button", { type: "button", class: "ar meet" + vipCls(x) + (x.prov ? " prov" : ""), style: varsFor(x), onclick: () => openItem(x) },
       el("span", { class: "at" }, el("b", { text: x.inicio || (x.todoElDia ? "Día" : "") }), el("small", { text: x.fin || (x.todoElDia ? "completo" : "") })), el("span", { class: "abar" }),
       el("span", { class: "ab" }, x.destacado ? el("span", { class: "vip-tag", text: "★ " + x.etiqueta }) : null, el("b", { text: x.titulo }), el("small", { text: [c ? c.nombre : "Sin contrato", x.lugar, x.origen === "outlook" ? "Outlook" : ""].filter(Boolean).join(" · ") + (isSeries(x) ? " · ↻" : "") })), pb(x.resp));
   }
@@ -2406,7 +2422,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 15:28";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 16:13";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
