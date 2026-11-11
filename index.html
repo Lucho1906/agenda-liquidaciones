@@ -1872,9 +1872,9 @@ window.startApp = () => {
     const data = { cid: c.id, row, nuevo: true, despues: anchor, n, et: p.et || "", a: p.a || "", q: text.trim(), s: "EN PROCESO", pl: "", rp: "", ri: "", o: "", oculto: false, creada: now, t: now, uid: S.uid || "" };
     try { await S.db.doc("liqmod/" + key).set(data); log("liq", { tipo: "liq", titulo: text.trim(), id: key }, c.codigo + (n === "p" ? " · nuevo requisito principal después de " : " · nuevo entregable en ") + p.q); L.add = null; L.addP = null; toast(n === "p" ? "Requisito agregado" : "Entregable agregado"); } catch (e) { toast(writeErr(e)); }
   }
-  // Eliminar (solo coordinador): queda marcado como eliminado, no se borra de la base, y se registra en el historial
+  // Eliminar (coordinador e ingeniera): queda marcado como eliminado, no se borra de la base, y se registra en el historial
   async function delLiqItem(c, x) {
-    if (S.readOnly || !S.db || !S.isOwner) return;
+    if (S.readOnly || !S.db) return;
     const its = annotate(liqItems(c.id)), hijos = x.n === "p" ? its.filter((y) => y.n === "e" && y.p === x.r) : [];
     const t = new Date().toISOString();
     try {
@@ -1989,7 +1989,7 @@ window.startApp = () => {
           el("div", { class: "lq-views", role: "group", "aria-label": "Nivel de detalle", style: "padding:3px" },
             el("button", { type: "button", "aria-pressed": String(!L.expandAll), onclick: () => { L.expandAll = false; L.open = {}; renderLiq(); } }, "Solo principales"),
             el("button", { type: "button", "aria-pressed": String(L.expandAll), onclick: () => { L.expandAll = true; L.open = {}; renderLiq(); } }, "Con entregables")),
-          S.readOnly ? null : el("button", { type: "button", class: "btn" + (L.editList ? " primary" : ""), style: "padding:5px 10px;font-size:12px", "aria-pressed": String(!!L.editList), title: "Agregar requisitos y entregables" + (S.isOwner ? ", o eliminarlos" : ""), text: L.editList ? "Listo, terminar edición" : "✎ Editar lista", onclick: () => { L.editList = !L.editList; L.add = null; L.addP = null; renderLiq(); } }),
+          S.readOnly ? null : el("button", { type: "button", class: "btn" + (L.editList ? " primary" : ""), style: "padding:5px 10px;font-size:12px", "aria-pressed": String(!!L.editList), title: "Agregar o eliminar requisitos y entregables", text: L.editList ? "Listo, terminar edición" : "✎ Editar lista", onclick: () => { L.editList = !L.editList; L.add = null; L.addP = null; renderLiq(); } }),
           hiddenN ? el("label", null, el("input", { type: "checkbox", checked: L.showHidden, onchange: (e) => { L.showHidden = e.target.checked; renderLiq(); } }), " Ver los que no aplican (" + hiddenN + ")") : null,
           activos.length ? el("button", { type: "button", class: "btn", style: "padding:5px 10px;font-size:12px", text: "Quitar filtros", onclick: () => { L.plazo = ""; L.est = ""; L.area = ""; L.vista = ""; L.q = ""; renderLiq(); } }) : null))));
     parts.push(liqList(c, items));
@@ -2049,7 +2049,7 @@ window.startApp = () => {
     return el("div", { class: "lq-acts" },
       x.n === "p" ? b("+ Entregable", "Agregar un entregable a este requisito", () => { L.add = x.r; L.addP = null; L.open[x.r] = true; renderLiq(); }) : null,
       x.n === "p" ? b("+ Requisito debajo", "Agregar un requisito principal debajo de este y sus entregables", () => { L.addP = x.r; L.add = null; L.open[x.r] = false; renderLiq(); }) : null,
-      S.isOwner ? b("Eliminar", x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", (e) => { const t = e.target; if (!t.classList.contains("armed")) { t.classList.add("armed"); t.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } delLiqItem(c, x); }, "danger") : null);
+      b("Eliminar", x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", (e) => { const t = e.target; if (!t.classList.contains("armed")) { t.classList.add("armed"); t.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } delLiqItem(c, x); }, "danger"));
   }
   function liqEditor(c, x) {
     const ro = S.readOnly;
@@ -2064,7 +2064,7 @@ window.startApp = () => {
         el("div", null, el("button", { type: "button", class: "btn", disabled: ro, text: x.oculto ? "Sí aplica" : "No aplica", onclick: () => { saveLiq(c, x, { oculto: !x.oculto }); L.edit = null; } }),
           x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar entregable", onclick: () => { L.add = x.r; L.open[x.r] = true; L.edit = null; renderLiq(); } }) : null,
           x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar requisito principal", title: "Se agrega debajo de este requisito y sus entregables", onclick: () => { L.addP = x.r; L.add = null; L.open[x.r] = false; L.edit = null; renderLiq(); } }) : null,
-          S.isOwner ? el("button", { type: "button", class: "btn danger", disabled: ro, text: "Eliminar", title: x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } delLiqItem(c, x); } }) : null),
+          el("button", { type: "button", class: "btn danger", disabled: ro, text: "Eliminar", title: x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } delLiqItem(c, x); } })),
         el("div", null, el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.edit = null; renderLiq(); } }),
           el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; saveLiq(c, x, { pl: pl.value, rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim() }); } }))));
   }
@@ -2356,7 +2356,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 10:55";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 11:13";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
