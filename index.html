@@ -642,7 +642,7 @@ img { max-width: 100%; }
       <span class="lbl">Mostrar</span>
       <label class="filt"><input type="checkbox" id="f-p1" checked><span class="pb" id="b-p1">CO</span><span id="n-p1" title="Coordinador de liquidaciones">Coordinador</span><span class="n" id="c-p1"></span></label>
       <label class="filt"><input type="checkbox" id="f-p2" checked><span class="pb" id="b-p2">IN</span><span id="n-p2" title="Ingeniera de liquidaciones">Ingeniera</span><span class="n" id="c-p2"></span></label>
-      <label class="filt"><input type="checkbox" id="f-both" checked><span class="pb both" id="b-both">CI</span><span>Reuniones de ambos</span><span class="n" id="c-both"></span></label>
+      <label class="filt"><input type="checkbox" id="f-both" checked><span class="pb both" id="b-both">CI</span><span>Compartidas (ambos)</span><span class="n" id="c-both"></span></label>
     </div>
     <div class="filters">
       <div style="display: flex; justify-content: space-between; align-items: center;"><span class="lbl">Contratos</span><button type="button" class="link-btn" id="c-all">Ver todos</button></div>
@@ -1177,8 +1177,8 @@ window.startApp = () => {
     $("l-fecha").textContent = r ? "Fecha" : (S.editing && isSeries(S.items.find((y) => y.id === S.editing)) ? "Empieza el" : "Fecha límite"); $("l-ini").textContent = r ? "Empieza" : "Hora (opcional)";
     $("w-fin").hidden = !r; $("w-lugar").hidden = !r; $("w-task-extra").hidden = r;
     const sel = $("i-resp"), cur = sel.value;
-    sel.replaceChildren(...["p1", "p2"].concat(r ? ["ambos"] : []).map((k) => el("option", { value: k, text: pname(k) })));
-    sel.value = (!r && cur === "ambos") ? "p1" : (cur || "p1");
+    sel.replaceChildren(...["p1", "p2", "ambos"].map((k) => el("option", { value: k, text: k === "ambos" ? (r ? "Ambos" : "Ambos · tarea compartida") : pname(k) })));
+    sel.value = cur || "p1";
   }
   function renderAv() {
     const b = $("av-list"); b.replaceChildren();
@@ -1395,7 +1395,7 @@ window.startApp = () => {
   const entrega = (x) => x.estado === "hecha" ? dia(x.completada) : x.estado === "revision" ? dia(x.enviada) : "";
   function metricas(a, b, persona) {
     const t0 = todayISO(), corte = b < t0 ? b : t0;
-    const filtro = (x) => !persona || x.resp === persona;
+    const filtro = (x) => !persona || x.resp === persona || x.resp === "ambos"; // las compartidas cuentan para los dos
     const conFecha = tareasConFecha(a, b).filter(filtro);
     const debidas = conFecha.filter((x) => x.fecha <= corte);
     const aTiempo = debidas.filter((x) => { const e = entrega(x); return e && e <= x.fecha; }).length;
@@ -2406,7 +2406,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 15:24";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 15:28";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
