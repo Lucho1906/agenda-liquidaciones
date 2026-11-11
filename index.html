@@ -1815,7 +1815,7 @@ window.startApp = () => {
     const note = Object.keys(patch).filter((k) => patch[k] !== prev[k]).map((k) => (lbl[k] || k) + ": " + val(k, prev[k] || "—") + " → " + val(k, patch[k])).join(" · ");
     try { await S.db.doc("config/contratos").set({ lista }); if (note) log("contrato", { tipo: "contrato", titulo: prev.codigo + " · " + prev.nombre, id: cid }, note); toast("Contrato actualizado"); } catch (e) { toast(writeErr(e)); }
   }
-  async function saveLiq(c, x, patch, silencioso) {
+  async function saveLiq(c, x, patch, silencioso, sinArrastre) {
     if (S.readOnly || !S.db) return;
     const key = c.id + "__" + x.r, prev = S.liqmod[key] || {};
     const data = Object.assign({ cid: c.id, row: x.r, s: x.s || "", pl: x.pl || "", rp: x.rp || "", ri: x.ri || "", o: x.o || "", oculto: !!x.oculto },
@@ -1832,10 +1832,21 @@ window.startApp = () => {
       await S.db.doc("liqmod/" + key).set(data);
       if (parts.length > 1) log("liq", { tipo: "liq", titulo: x.q, id: key }, parts.join(" · "));
       // Si avanza un requisito principal, sus entregables que estén más atrás avanzan al mismo estado.
-      const n = (x.n === "p" && patch.s && patch.s !== x.s) ? await arrastrarEntregables(c, x, patch.s, x.s) : 0;
-      if (!silencioso) toast(n ? "Guardado · también " + (n === 1 ? "1 entregable pasó" : n + " entregables pasaron") + " a «" + (EST_L[patch.s] || patch.s) + "»" : "Guardado");
+      const n = (x.n === "p" && patch.s && patch.s !== x.s && !sinArrastre) ? await arrastrarEntregables(c, x, patch.s, x.s) : 0;
+      // Si todos los entregables de un principal quedan radicados o aprobados, el principal sube con ellos.
+      const sube = (x.n === "e" && x.p && patch.s && patch.s !== x.s) ? await subirPrincipal(c, x, patch.s) : null;
+      if (!silencioso) toast(sube ? "Guardado · todos los entregables están al menos en «" + (EST_L[sube.s] || sube.s) + "»: «" + sube.q.slice(0, 50) + "» pasó a ese estado" : n ? "Guardado · también " + (n === 1 ? "1 entregable pasó" : n + " entregables pasaron") + " a «" + (EST_L[patch.s] || patch.s) + "»" : "Guardado");
     }
     catch (e) { toast(writeErr(e)); render(); }
+  }
+  async function subirPrincipal(c, x, nuevo) {
+    const its = annotate(liqItems(c.id)), p = its.find((y) => y.r === x.p); if (!p) return null;
+    const ks = its.filter((y) => y.n === "e" && y.p === p.r && !y.oculto).map((y) => EST.indexOf(y.r === x.r ? nuevo : y.s));
+    if (!ks.length) return null;
+    const min = Math.min(...ks); // el estado más atrasado de sus entregables
+    if (min < 1 || min <= EST.indexOf(p.s)) return null; // «En proceso» no sube nada; el principal nunca baja por esto
+    await saveLiq(c, p, { s: EST[min] }, true, true);
+    return { s: EST[min], q: p.q };
   }
   // Avance: los entregables atrasados suben al estado del principal (salvo excepciones).
   // Retroceso: los que van por delante vuelven con él, salvo los ya aprobados (IDU o ESP).
@@ -2345,7 +2356,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera");
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 10:43";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
