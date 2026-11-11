@@ -508,6 +508,13 @@ select.est { -webkit-appearance: none; appearance: none; border: 1px solid color
 .lq-ed .acts div { display: flex; gap: 8px; flex-wrap: wrap; }
 .lq-add { display: flex; gap: 8px; padding: 4px 6px 8px 34px; }
 .lq-add.p { padding-left: 6px; }
+.rad-tag { color: var(--accent); }
+.rad-ed .rad-row { display: grid; grid-template-columns: 28px 1.1fr 1.2fr 140px 1.3fr 34px; gap: 6px; align-items: center; margin-top: 6px; }
+.rad-ed .rad-row b { text-align: center; color: var(--accent); }
+.rad-ed select, .rad-ed input { min-width: 0; }
+.rad-ed > .btn { margin-top: 8px; justify-self: start; align-self: flex-start; width: auto; }
+.rad-vacio { color: var(--muted); font-size: 12px; }
+@media (max-width: 700px) { .rad-ed .rad-row { grid-template-columns: 28px 1fr 1fr; } }
 .lq-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .lq-acts .btn { padding: 3px 9px; font-size: 11.5px; }
 .lq-add input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 7px 9px; }
@@ -1432,7 +1439,7 @@ window.startApp = () => {
       else if (x.fecha && x.fecha <= lim) out.push({ n: x.prio === "alta" ? 1 : 2, cls: x.prio === "alta" ? "cr" : "at", ic: x.prio === "alta" ? "!" : "●", et: x.prio === "alta" ? "Urgente" : "Próxima", txt: (cod ? cod + " · " : "") + x.titulo, det: fmtDL(x.fecha) + nota(x.fecha) + " · " + pname(x.resp) });
     });
     S.contracts.filter((c) => c.fase === "liquidacion" && S.liq[c.id] && !S.hideC[c.id]).forEach((c) => {
-      const its = liqItems(c.id).filter((x) => !x.oculto && (x.n === "p" || x.n === "e") && !cerrado(x.s) && x.pl);
+      const its = liqItems(c.id).filter((x) => !x.oculto && (x.n === "p" || x.n === "e") && !entregado(x.s) && x.pl);
       const venc = its.filter((x) => x.pl < t0).length, prox = its.filter((x) => x.pl >= t0 && x.pl <= lim);
       if (venc) out.push({ n: 0, cls: "cr", ic: "!", et: "Vencida", txt: c.nombre + " · " + venc + (venc === 1 ? " requisito de liquidación vencido" : " requisitos de liquidación vencidos"), det: c.codigo });
       if (prox.length) { const f = prox.map((x) => x.pl).sort()[0]; out.push({ n: 2, cls: "at", ic: "●", et: "Próxima", txt: c.nombre + " · " + prox.length + (prox.length === 1 ? " requisito con plazo" : " requisitos con plazo") + " en 5 días hábiles", det: "el primero " + fmtDL(f) + nota(f) }); }
@@ -1738,6 +1745,22 @@ window.startApp = () => {
   const DONE_EST = "APROBADO POR IDU";
   // Un requisito queda cerrado cuando lo aprueba el IDU o la ESP.
   const cerrado = (s) => s === "APROBADO POR IDU" || s === "APROBADO POR LA ESP";
+  // Ya radicado o aprobado: el plazo de entrega se cumplió, así que no cuenta como vencido
+  const entregado = (s) => EST.indexOf(s) >= 1;
+  // Control de radicaciones: cada cambio de estado deja un evento con fecha (radicado, aprobado o devuelto)
+  const tipoEv = (s) => s && s.startsWith("RADICADO") ? "rad" : cerrado(s) ? "apr" : "dev";
+  function conEvento(rads, de, a) {
+    const r = (rads || []).slice(), t = todayISO();
+    if (!a || a === de || (tipoEv(a) === "dev" && !entregado(de))) return r;
+    const ev = { tipo: tipoEv(a), s: a, f: t, n: "", auto: true };
+    const u = r[r.length - 1];
+    if (u && u.auto && u.f === t && !u.n) r[r.length - 1] = ev; else r.push(ev); // varios cambios el mismo día: queda el último
+    if (ev.tipo === "dev" && !entregado(r.length > 1 ? r[r.length - 2].s : "")) r.pop(); // corrección del mismo día: no fue devolución
+    return r;
+  }
+  const EV_L = { rad: "Radicación", apr: "Aprobación", dev: "Devuelto / reabierto" };
+  const nRad = (x) => (x.rads || []).filter((e) => e.tipo === "rad").length;
+  const ultRad = (x) => (x.rads || []).filter((e) => e.tipo === "rad").map((e) => e.f).sort().pop() || "";
   const L = { sel: null, area: "", est: "", q: "", vista: "", expandAll: false, plazo: "", open: {}, edit: null, add: null, showHidden: false };
   S.liq = {}; S.liqmod = {};
   const fmtDY = (s) => { const d = parse(s); return d.getDate() + " " + MESES[d.getMonth()].slice(0, 3) + " " + d.getFullYear(); };
@@ -1750,7 +1773,7 @@ window.startApp = () => {
     const cur = steps.find(([, d]) => d >= t0) || null;
     return { steps, cur, days: cur ? daysBetween(t0, cur[1]) : null };
   }
-  const pickMod = (m) => { const o = {}; ["s", "pl", "rp", "ri", "o", "oculto", "q", "eliminado"].forEach((k) => { if (k in m) o[k] = m[k]; }); return o; };
+  const pickMod = (m) => { const o = {}; ["s", "pl", "rp", "ri", "o", "oculto", "q", "eliminado", "rads"].forEach((k) => { if (k in m) o[k] = m[k]; }); return o; };
   function liqItems(cid) {
     const base = (S.liq[cid] && S.liq[cid].items) || [];
     const mods = Object.values(S.liqmod).filter((m) => m.cid === cid);
@@ -1782,18 +1805,18 @@ window.startApp = () => {
     const its = liqItems(cid).filter((x) => !x.oculto), t0 = todayISO();
     const ps = its.filter((x) => x.n === "p"), cnt = {}; EST.forEach((e) => (cnt[e] = 0));
     ps.forEach((x) => { if (cnt[x.s] != null) cnt[x.s]++; else cnt["EN PROCESO"]++; });
-    const pend = its.filter((x) => (x.n === "p" || x.n === "e") && !cerrado(x.s) && x.pl);
+    const pend = its.filter((x) => (x.n === "p" || x.n === "e") && !entregado(x.s) && x.pl);
     return { total: ps.length, cnt, done: cnt["APROBADO POR IDU"] + cnt["APROBADO POR LA ESP"], late: pend.filter((x) => x.pl < t0).length, lateP: pend.filter((x) => x.pl < t0 && x.n === "p").length, lateE: pend.filter((x) => x.pl < t0 && x.n === "e").length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
   }
   const stackBar = (cnt) => el("div", { class: "sbar", title: EST.map((e) => EST_L[e] + ": " + cnt[e]).join("\n") }, EST.map((e) => cnt[e] ? el("span", { style: "flex:" + cnt[e] + ";background:" + EST_C[e] }) : null));
   function liqDue(from, to) {
     const out = [];
     S.contracts.forEach((c) => { if (S.hideC[c.id] || !S.liq[c.id]) return; const m = {};
-      liqItems(c.id).forEach((x) => { if (x.oculto || cerrado(x.s) || !x.pl || (x.n !== "p" && x.n !== "e")) return; if (x.pl >= from && x.pl <= to) (m[x.pl] = m[x.pl] || []).push(x); });
+      liqItems(c.id).forEach((x) => { if (x.oculto || entregado(x.s) || !x.pl || (x.n !== "p" && x.n !== "e")) return; if (x.pl >= from && x.pl <= to) (m[x.pl] = m[x.pl] || []).push(x); });
       Object.entries(m).forEach(([d, xs]) => out.push({ tipo: "liq", id: "liq-" + c.id + d, fecha: d, contrato: c.id, resp: "p1", titulo: c.nombre + ": " + xs.length + (xs.length === 1 ? " requisito de liquidación" : " requisitos de liquidación"), n: xs.length })); });
     return out;
   }
-  function liqLate() { const t0 = todayISO(); return S.contracts.filter((c) => !S.hideC[c.id] && S.liq[c.id]).map((c) => ({ c, n: liqItems(c.id).filter((x) => !x.oculto && !cerrado(x.s) && x.pl && x.pl < t0 && (x.n === "p" || x.n === "e")).length })).filter((o) => o.n); }
+  function liqLate() { const t0 = todayISO(); return S.contracts.filter((c) => !S.hideC[c.id] && S.liq[c.id]).map((c) => ({ c, n: liqItems(c.id).filter((x) => !x.oculto && !entregado(x.s) && x.pl && x.pl < t0 && (x.n === "p" || x.n === "e")).length })).filter((o) => o.n); }
   function openLiq(cid, plazo) { L.sel = cid; L.plazo = plazo || ""; L.area = ""; L.est = ""; L.q = ""; L.vista = plazo ? "pend" : ""; L.edit = null; L.open = {}; L.expandAll = !!plazo; setView("liq"); window.scrollTo(0, 0); }
   function liqChip(x) {
     return el("button", { type: "button", class: "chip" + (x.fecha < todayISO() ? " late" : ""), style: varsFor(x), title: "Plazos de liquidación\n" + x.titulo, onclick: (e) => { e.stopPropagation(); openLiq(x.contrato, x.fecha); } },
@@ -1820,6 +1843,7 @@ window.startApp = () => {
     const key = c.id + "__" + x.r, prev = S.liqmod[key] || {};
     const data = Object.assign({ cid: c.id, row: x.r, s: x.s || "", pl: x.pl || "", rp: x.rp || "", ri: x.ri || "", o: x.o || "", oculto: !!x.oculto },
       x.nuevo ? { nuevo: true, despues: prev.despues || "", n: x.n, et: x.et || "", a: x.a || "", q: x.q, creada: prev.creada || prev.t || "" } : {}, patch, { t: new Date().toISOString(), uid: S.uid || "" });
+    data.rads = patch.rads || conEvento(x.rads || prev.rads, x.s, patch.s);
     // Un entregable que se deja a mano por detrás de su principal queda como excepción (no lo arrastran cambios posteriores)
     if (x.n === "e" && patch.s && x.p) { const pr = annotate(liqItems(c.id)).find((y) => y.r === x.p); data.excepcion = !!pr && EST.indexOf(patch.s) < EST.indexOf(pr.s); }
     else if (prev.excepcion != null && data.excepcion == null) data.excepcion = prev.excepcion;
@@ -1827,6 +1851,7 @@ window.startApp = () => {
     if (patch.s && patch.s !== x.s) parts.push(EST_L[patch.s] || patch.s);
     if (patch.pl != null && patch.pl !== (x.pl || "")) parts.push(patch.pl ? "plazo " + fmtD(patch.pl) : "sin plazo");
     if (patch.o != null && patch.o !== (x.o || "")) parts.push(patch.o.slice(0, 160));
+    if (patch.rads && JSON.stringify(patch.rads) !== JSON.stringify(x.rads || [])) parts.push("registro de radicaciones: " + patch.rads.filter((e) => e.tipo === "rad").length + " radicaciones");
     if (patch.oculto != null && patch.oculto !== !!x.oculto) parts.push(patch.oculto ? "marcado como no aplica" : "vuelve a aplicar");
     try {
       await S.db.doc("liqmod/" + key).set(data);
@@ -1857,7 +1882,7 @@ window.startApp = () => {
     for (const y of hijos) {
       const k = c.id + "__" + y.r, pv = S.liqmod[k] || {};
       const d = Object.assign({ cid: c.id, row: y.r, s: nuevo, pl: y.pl || "", rp: y.rp || "", ri: y.ri || "", o: y.o || "", oculto: !!y.oculto },
-        y.nuevo ? { nuevo: true, despues: pv.despues || "", n: "e", et: y.et || "", a: y.a || "", q: y.q, creada: pv.creada || pv.t || "" } : {}, { t: new Date().toISOString(), uid: S.uid || "", arrastre: p.r, excepcion: false });
+        y.nuevo ? { nuevo: true, despues: pv.despues || "", n: "e", et: y.et || "", a: y.a || "", q: y.q, creada: pv.creada || pv.t || "" } : {}, { t: new Date().toISOString(), uid: S.uid || "", arrastre: p.r, excepcion: false, rads: conEvento(y.rads || pv.rads, y.s, nuevo) });
       await S.db.doc("liqmod/" + k).set(d);
     }
     if (hijos.length) log("liq", { tipo: "liq", titulo: p.q, id: c.id + "__" + p.r }, c.codigo + " · " + hijos.length + (hijos.length === 1 ? " entregable pasó" : " entregables pasaron") + " automáticamente a " + (EST_L[nuevo] || nuevo) + ": " + hijos.map((y) => y.q).join(", ").slice(0, 300));
@@ -1929,7 +1954,7 @@ window.startApp = () => {
     if (L.est && x.s !== L.est) return false;
     if (L.vista === "pend" && cerrado(x.s)) return false;
     if (L.vista === "aprob" && !cerrado(x.s)) return false;
-    if (L.vista === "venc" && !(!cerrado(x.s) && x.pl && x.pl < todayISO())) return false;
+    if (L.vista === "venc" && !(!entregado(x.s) && x.pl && x.pl < todayISO())) return false;
     if (L.plazo && x.pl !== L.plazo) return false;
     if (L.q && !fold([x.q, x.o, x.rp, x.ri].filter(Boolean).join(" ")).includes(fold(L.q))) return false;
     return true;
@@ -1972,7 +1997,7 @@ window.startApp = () => {
     const cap = (a) => a[0] + a.slice(1).toLowerCase();
     const t0f = todayISO();
     const cuenta = (f) => items.filter((x) => x.n === "p" && !x.oculto && f(x)).length;
-    const VISTAS = [["", "Todos", cuenta(() => true)], ["pend", "Pendientes", cuenta((x) => !cerrado(x.s))], ["venc", "Vencidos", cuenta((x) => !cerrado(x.s) && x.pl && x.pl < t0f)], ["aprob", "Cerrados", cuenta((x) => cerrado(x.s))]];
+    const VISTAS = [["", "Todos", cuenta(() => true)], ["pend", "Pendientes", cuenta((x) => !cerrado(x.s))], ["venc", "Vencidos", cuenta((x) => !entregado(x.s) && x.pl && x.pl < t0f)], ["aprob", "Cerrados", cuenta((x) => cerrado(x.s))]];
     const search = el("input", { type: "search", placeholder: "Buscar requisito, responsable u observación", value: L.q, "aria-label": "Buscar en la lista de chequeo" });
     search.addEventListener("input", () => { L.q = search.value; clearTimeout(search._t); search._t = setTimeout(() => { renderLiq(); const s2 = $("v-liq").querySelector('input[type="search"]'); if (s2) { s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); } }, 250); });
     const hiddenN = items.filter((x) => x.oculto).length;
@@ -2028,7 +2053,7 @@ window.startApp = () => {
       known ? null : el("option", { value: x.s || "", text: x.s || "Sin estado", selected: true }), EST.map((e) => el("option", { value: e, text: EST_L[e], selected: x.s === e })));
   }
   function liqRow(c, x, kids, filtering, ctx) {
-    const t0 = todayISO(), late = x.pl && x.pl < t0 && !cerrado(x.s), open = isOpen(x.r);
+    const t0 = todayISO(), late = x.pl && x.pl < t0 && !entregado(x.s), open = isOpen(x.r);
     const kd = kids ? kids.filter((k) => !k.oculto) : null;
     return el("div", { class: "lq-r " + x.n + (x.oculto ? " hid" : "") + (x.nuevo ? " nuevo" : "") + (ctx ? " ctx" : "") },
       x.n === "p" && kids && kids.length ? el("button", { type: "button", class: "chev", "aria-expanded": String(!!open), "aria-label": (open ? "Ocultar" : "Ver") + " entregables", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, open ? "▾" : "▸") : el("span", { class: "chev" }),
@@ -2038,6 +2063,7 @@ window.startApp = () => {
           kd && kd.length ? el("button", { type: "button", class: "lq-tog", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, (open ? "Ocultar entregables" : "Ver entregables") + " · " + kd.filter((k) => cerrado(k.s)).length + "/" + kd.length + " cerrados" + (filtering && kids.filter((k) => liqFilterMatch(k)).length !== kd.length ? " · " + kids.filter((k) => liqFilterMatch(k)).length + " coinciden" : "")) : null,
           x.rp ? el("span", { text: x.rp }) : null,
           x.pl ? el("span", { class: late ? "late" : "", text: (late ? "Venció " : "Plazo ") + fmtD(x.pl) }) : (x.plt ? el("span", { text: x.plt }) : null),
+          nRad(x) ? el("span", { class: "rad-tag", title: (x.rads || []).map((e, i) => (EV_L[e.tipo]) + " · " + (EST_L[e.s] || e.s) + " · " + fmtDY(e.f) + (e.n ? " · " + e.n : "")).join("\n"), text: (nRad(x) === 1 ? "Radicado " : nRad(x) + " radicaciones · última ") + fmtD(ultRad(x)) }) : null,
           x.oculto ? el("span", { text: "No aplica" }) : null,
           x.o ? el("span", { class: "obs", text: x.o.length > 110 ? x.o.slice(0, 110) + "…" : x.o, title: x.o }) : null),
         L.editList && !S.readOnly ? rowActs(c, x) : null),
@@ -2060,13 +2086,37 @@ window.startApp = () => {
       el("div", { class: "field" }, el("label", { text: "Responsable" }), rp),
       el("div", { class: "field" }, el("label", { text: "Responsable interno" }), ri),
       el("div", { class: "field full" }, el("label", { text: "Observaciones" }), o),
+      radEditor(x, ro),
       el("div", { class: "acts" },
         el("div", null, el("button", { type: "button", class: "btn", disabled: ro, text: x.oculto ? "Sí aplica" : "No aplica", onclick: () => { saveLiq(c, x, { oculto: !x.oculto }); L.edit = null; } }),
           x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar entregable", onclick: () => { L.add = x.r; L.open[x.r] = true; L.edit = null; renderLiq(); } }) : null,
           x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar requisito principal", title: "Se agrega debajo de este requisito y sus entregables", onclick: () => { L.addP = x.r; L.add = null; L.open[x.r] = false; L.edit = null; renderLiq(); } }) : null,
           el("button", { type: "button", class: "btn danger", disabled: ro, text: "Eliminar", title: x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } delLiqItem(c, x); } })),
         el("div", null, el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.edit = null; renderLiq(); } }),
-          el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; saveLiq(c, x, { pl: pl.value, rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim() }); } }))));
+          el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; saveLiq(c, x, { pl: pl.value, rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim(), rads: radsEditados(x) }); } }))));
+  }
+  // Historial de radicaciones del requisito: fecha, a quién y número de oficio; se puede corregir y agregar las anteriores
+  const RADS_ED = {};
+  function radsEditados(x) { const r = RADS_ED[x.r]; delete RADS_ED[x.r]; return r ? r.filter((e) => e.f).sort((a, b) => a.f.localeCompare(b.f)) : (x.rads || []); }
+  function radEditor(x, ro) {
+    const rs = RADS_ED[x.r] = (x.rads || []).map((e) => Object.assign({}, e));
+    const box = el("div", { class: "field full rad-ed" });
+    const pinta = () => {
+      const n = rs.filter((e) => e.tipo === "rad").length;
+      box.replaceChildren(...[el("label", { text: "Radicaciones y respuestas" + (n ? " · " + n + (n === 1 ? " radicación" : " radicaciones") : "") }),
+        rs.length ? null : el("div", { class: "rad-vacio", text: "Aún no hay registros. Se crean solos al cambiar el estado a radicado, aprobado o de vuelta a «En proceso»; también puedes agregar las anteriores." }),
+        ...rs.map((e, i) => {
+          const k = rs.slice(0, i + 1).filter((y) => y.tipo === "rad").length;
+          const tipo = el("select", { disabled: ro, onchange: (ev) => { e.tipo = ev.target.value; pinta(); } }, Object.entries(EV_L).map(([v, t]) => el("option", { value: v, text: t, selected: e.tipo === v })));
+          const est = el("select", { disabled: ro, onchange: (ev) => (e.s = ev.target.value) }, EST.map((v) => el("option", { value: v, text: EST_L[v], selected: e.s === v })));
+          const fe = el("input", { type: "date", value: e.f || "", disabled: ro, onchange: (ev) => (e.f = ev.target.value) });
+          const nu = el("input", { value: e.n || "", maxlength: "80", disabled: ro, placeholder: "N.º de oficio o radicado", onchange: (ev) => (e.n = ev.target.value.trim()) });
+          return el("div", { class: "rad-row" }, el("b", { text: e.tipo === "rad" ? "#" + k : e.tipo === "apr" ? "✓" : "↩" }), tipo, est, fe, nu,
+            el("button", { type: "button", class: "btn", disabled: ro, title: "Quitar este registro", text: "×", onclick: () => { rs.splice(i, 1); pinta(); } }));
+        }),
+        el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar radicación", onclick: () => { rs.push({ tipo: "rad", s: entregado(x.s) && !cerrado(x.s) ? x.s : "RADICADO A INT", f: todayISO(), n: "" }); pinta(); } })].filter(Boolean));
+    };
+    pinta(); return box;
   }
   function addRow(c, p, anchor, n) {
     const inp = el("input", { placeholder: n === "p" ? "Nuevo requisito principal (va después de \"" + p.q.slice(0, 40) + "\")" : "Nuevo entregable de \"" + p.q.slice(0, 40) + "\"", maxlength: "200", "aria-label": n === "p" ? "Nuevo requisito principal" : "Nuevo entregable" });
@@ -2356,7 +2406,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 11:13";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 15:24";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
