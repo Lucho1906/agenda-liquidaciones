@@ -355,6 +355,9 @@ dialog { overflow: auto; }
 .vip.vip-celeste { background: repeating-linear-gradient(135deg, #7dd3fc 0 12px, #38bdf8 12px 24px) !important; color: #04202e !important; border-left-color: #e0f2fe !important; box-shadow: 0 0 0 2px #bae6fd, 0 6px 18px rgb(56 189 248 / .25); }
 .vip.vip-celeste b, .vip.vip-celeste i, .vip.vip-celeste small, .vip.vip-celeste .tx, .vip.vip-celeste .tm, .vip.vip-celeste .vip-tag { color: #04202e !important; }
 .vip.vip-celeste .pb { color: #bae6fd; }
+.chip.atr { box-shadow: inset 3px 0 0 #fb923c; }
+.chip.atr .tx::before { content: "↷ "; color: #fb923c; font-weight: 700; }
+.atr-n { color: #fb923c; }
 .vip-tag { font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #1c1600; }
 dialog::backdrop { background: rgb(0 0 0 / .55); }
 .dlg { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
@@ -658,6 +661,7 @@ img { max-width: 100%; }
       <span><span style="width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--accent);"></span>Tarea con fecha límite</span>
       <span><span class="pb">CO</span>Responsable</span>
       <span><span style="width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--late);"></span>Vencida</span>
+      <span><span style="width: 12px; text-align: center; color: #fb923c; font-weight: 700;">↷</span>No se cumplió: pasó al día siguiente</span>
     </div>
     <div class="side-foot">
       <button class="btn" type="button" data-view="informes" hidden>Informes (solo tú)</button>
@@ -894,6 +898,20 @@ window.startApp = () => {
   function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2800); }
   const pname = (k) => k === "ambos" ? "Ambos" : (S.people[k] || (k === "p2" ? "Ingeniera" : "Coordinador"));
   const isLate = (x) => x.tipo === "tarea" && x.origen !== "outlook" && x.estado !== "hecha" && x.estado !== "revision" && x.fecha && x.fecha < todayISO();
+  // Tareas no cumplidas: pasan solas al día siguiente y guardan para qué día eran
+  const fechaOriginal = (x) => (x.atrasos && x.atrasos.length && x.atrasos[0].de) || x.fecha;
+  const notaAtraso = (x) => { const a = x.atrasos || []; if (!a.length) return ""; const ds = a.map((e) => fmtD(e.de)); return a.length === 1 ? "Era para el " + ds[0] + " y no se cumplió" : "No se cumplió " + a.length + " veces (" + ds.join(", ") + ")"; };
+  const arrastradas = {};
+  async function arrastrarTareas() {
+    if (S.readOnly || !S.db) return;
+    const t0 = todayISO(), now = new Date().toISOString();
+    const xs = S.base.filter((x) => x.tipo === "tarea" && !isSeries(x) && x.origen !== "outlook" && x.fecha && x.fecha < t0 && x.estado !== "hecha" && x.estado !== "revision" && arrastradas[x.id] !== t0);
+    for (const x of xs) {
+      arrastradas[x.id] = t0;
+      const atrasos = (x.atrasos || []).concat([{ de: x.fecha, a: t0, t: now }]);
+      try { await S.db.doc("agenda/" + x.id).update({ fecha: t0, atrasos, actualizada: now }); log("editar", x, "No se cumplió el " + fmtD(x.fecha) + "; pasó automáticamente al " + fmtD(t0)); } catch (e) { delete arrastradas[x.id]; }
+    }
+  }
   // Reuniones traídas de Outlook (solo lectura; aquí solo se asigna responsable y contrato)
   S.base = []; S.ol = []; S.olaj = {};
   function guessContrato(t) {
@@ -1025,7 +1043,7 @@ window.startApp = () => {
   }
 
   function taskChip(x) {
-    return dragSrc(el("button", { type: "button", class: "chip" + (x.estado === "hecha" ? " done" : "") + (x.estado === "revision" ? " revc" : "") + (isLate(x) ? " late" : "") + vipCls(x) + (x.prov ? " prov" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo + (x.olEstado ? "\n" + x.olEstado : "") + (isSeries(x) ? "\n" + repLabel(x.rep.freq, (x._series || x).fecha) : ""), onclick: (e) => { e.stopPropagation(); openItem(x); } },
+    return dragSrc(el("button", { type: "button", class: "chip" + (x.estado === "hecha" ? " done" : "") + (x.estado === "revision" ? " revc" : "") + (isLate(x) ? " late" : "") + (notaAtraso(x) && x.estado !== "hecha" ? " atr" : "") + vipCls(x) + (x.prov ? " prov" : ""), style: varsFor(x), title: pname(x.resp) + " · " + cLabel(cOf(x)) + "\n" + x.titulo + (notaAtraso(x) ? "\n↷ " + notaAtraso(x) : "") + (x.olEstado ? "\n" + x.olEstado : "") + (isSeries(x) ? "\n" + repLabel(x.rep.freq, (x._series || x).fecha) : ""), onclick: (e) => { e.stopPropagation(); openItem(x); } },
       x.tipo === "reunion" ? el("span", { class: "lq", text: "◷" }) : el("span", { class: "bx" }), el("span", { class: "tx", style: "flex:1", text: (x.inicio ? x.inicio + " " : "") + x.titulo }), repMark(x), pb(x.resp)), x);
   }
 
@@ -1146,6 +1164,7 @@ window.startApp = () => {
           isSeries(x) ? el("span", { text: "↻ " + repLabel(x.rep.freq, x._series.fecha) }) : null,
           x.prio === "alta" ? el("span", { style: "color:var(--late)", text: "Prioridad alta" }) : null, x.estado === "curso" ? el("span", { style: "color:var(--accent)", text: "En curso" }) : null,
           x.estado === "revision" ? el("span", { class: "pill-rev", text: "⧗ En revisión" }) : null,
+          notaAtraso(x) && x.estado !== "hecha" ? el("span", { class: "atr-n", text: "↷ " + notaAtraso(x) }) : null,
           (x.avances || []).length ? el("span", { text: x.avances.length + (x.avances.length === 1 ? " avance" : " avances") }) : null)),
       el("span", { class: "dt" + (late ? " late" : ""), text: x.fecha ? fmtD(x.fecha) : "sin fecha" }));
   }
@@ -1246,6 +1265,7 @@ window.startApp = () => {
     const ser = isSeries(series);
     if (ser) $("l-fecha").textContent = "Primera fecha";
     $("rep-note").hidden = !ser; if (ser) $("rep-note").textContent = "Es una serie" + (S.inst ? " (abriste la del " + fmtDL(S.inst._date) + ")" : "") + ": lo que cambies aquí aplica a todas las fechas." + (series.tipo === "tarea" ? " Cada fecha se marca como hecha por separado desde su casilla." : "");
+    if (!ser && x.tipo === "tarea" && notaAtraso(x)) { $("rep-note").hidden = false; $("rep-note").textContent = "⚠ " + notaAtraso(x) + ". Se pasó sola al día siguiente; el informe la mide contra la fecha original (" + fmtD(fechaOriginal(x)) + ")."; }
     $("i-estado").closest(".field").hidden = ser;
     $("tipo-seg").hidden = !!series;
     $("btn-del").hidden = !series; $("btn-del").classList.remove("armed"); $("btn-del").textContent = ser ? "Eliminar toda la serie" : "Eliminar";
@@ -1276,7 +1296,7 @@ window.startApp = () => {
     const r = v.tipo === "reunion", estado = r ? "" : (v.estado || "pendiente");
     return { tipo: v.tipo, titulo: v.titulo, resp: v.resp || "p1", contrato: v.contrato || "", fecha: v.fecha || "", inicio: v.inicio || "", fin: r ? (v.fin || "") : "",
       lugar: r ? (v.lugar || "") : "", prio: r ? "" : (v.prio || "media"), estado, notas: v.notas || "", avances: v.avances || [],
-      rep: v.freq ? { freq: v.freq, hasta: v.hasta || "" } : null, excl: prev ? (prev.excl || []) : [], hechas: prev ? (prev.hechas || {}) : {},
+      rep: v.freq ? { freq: v.freq, hasta: v.hasta || "" } : null, excl: prev ? (prev.excl || []) : [], hechas: prev ? (prev.hechas || {}) : {}, atrasos: prev ? (prev.atrasos || []) : [],
       creada: prev ? (prev.creada || now) : now, creador: prev ? (prev.creador || "") : (S.uid || ""), actualizada: now,
       completada: estado === "hecha" ? ((prev && prev.estado === "hecha" && prev.completada) || now) : "", origen: prev ? (prev.origen || "manual") : (v.origen || "manual") };
   }
@@ -1406,16 +1426,16 @@ window.startApp = () => {
   const prevRef = (modo, ref, k) => modo === "mes" ? new Date(ref.getFullYear(), ref.getMonth() - k, 1) : addDays(ref, -7 * k);
   // Tareas propias (sin Outlook), con las repetitivas expandidas por fecha
   const tareasBase = () => S.items.filter((x) => x.tipo === "tarea" && x.origen !== "outlook");
-  function tareasConFecha(a, b) { return tareasBase().flatMap((x) => isSeries(x) ? occurrences(x, a, b).map((d) => inst(x, d)) : (x.fecha && x.fecha >= a && x.fecha <= b ? [x] : [])); }
+  function tareasConFecha(a, b) { return tareasBase().flatMap((x) => isSeries(x) ? occurrences(x, a, b).map((d) => inst(x, d)) : (fechaOriginal(x) && fechaOriginal(x) >= a && fechaOriginal(x) <= b ? [x] : [])); } // las arrastradas cuentan en su fecha original
   // Fecha en que la tarea quedó entregada: cierre, o envío a revisión si aún está en revisión
   const entrega = (x) => x.estado === "hecha" ? dia(x.completada) : x.estado === "revision" ? dia(x.enviada) : "";
   function metricas(a, b, persona) {
     const t0 = todayISO(), corte = b < t0 ? b : t0;
     const filtro = (x) => !persona || x.resp === persona || x.resp === "ambos"; // las compartidas cuentan para los dos
     const conFecha = tareasConFecha(a, b).filter(filtro);
-    const debidas = conFecha.filter((x) => x.fecha <= corte);
-    const aTiempo = debidas.filter((x) => { const e = entrega(x); return e && e <= x.fecha; }).length;
-    const tarde = debidas.filter((x) => { const e = entrega(x); return e && e > x.fecha; }).length;
+    const debidas = conFecha.filter((x) => fechaOriginal(x) <= corte);
+    const aTiempo = debidas.filter((x) => { const e = entrega(x); return e && e <= fechaOriginal(x); }).length;
+    const tarde = debidas.filter((x) => { const e = entrega(x); return e && e > fechaOriginal(x); }).length;
     // cerradas dentro del periodo, sin importar su fecha límite
     let cerradas = 0;
     tareasBase().filter(filtro).forEach((x) => {
@@ -1427,7 +1447,7 @@ window.startApp = () => {
     let vencidas = 0;
     tareasBase().filter(filtro).forEach((x) => {
       if (isSeries(x)) { occurrences(x, desde14, iso(addDays(parse(corte), -1))).forEach((d) => { const ts = (x.hechas || {})[d]; if (!ts || dia(ts) > corte) vencidas++; }); return; }
-      if (!x.fecha || x.fecha >= corte) return;
+      if (!fechaOriginal(x) || fechaOriginal(x) >= corte) return;
       const e = entrega(x); if (!e || e > corte) vencidas++;
     });
     const abiertas = conFecha.length - conFecha.filter((x) => entrega(x)).length;
@@ -1704,7 +1724,7 @@ window.startApp = () => {
     db.doc("config/equipo").onSnapshot((s) => { const d = s.exists ? s.data() : null; if (d) { S.people = { p1: d.p1 || "Coordinador", p2: d.p2 || "Ingeniera" }; render(); } }, () => {});
     db.collection("outlook").limit(5000).onSnapshot((snap) => { S.ol = snap.docs.map((d) => ({ id: d.id, e: d.data() })); mergeOl(); if (S.loaded) render(); }, () => {});
     db.collection("outlook_ajustes").limit(5000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.olaj = o; mergeOl(); if (S.loaded) render(); }, () => {});
-    db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.base = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); mergeOl(); S.loaded = true; setStatus(); render(); sembrarRevision(); },
+    db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.base = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); mergeOl(); S.loaded = true; setStatus(); render(); sembrarRevision(); arrastrarTareas(); },
       (e) => { clearTimeout(timer); if (e && (e.code === "revoked" || e.code === "not_granted")) S.db = false; setStatus("No se pudo cargar la agenda."); render(); });
     db.collection("liq").limit(50).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liq = o; if (S.loaded) render(); }, () => {});
     db.collection("liqmod").limit(1000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liqmod = o; if (S.loaded) render(); }, () => {});
@@ -2155,7 +2175,7 @@ window.startApp = () => {
     return el("div", { class: "ar" + (x.estado === "hecha" ? " done" : "") + (late ? " late" : ""), style: varsFor(x) },
       el("input", { type: "checkbox", checked: x.estado === "hecha" || x.estado === "revision", disabled: S.readOnly, "aria-label": "Marcar como hecha: " + x.titulo, onchange: (e) => toggleDone(x, e.target.checked) }),
       el("button", { type: "button", class: "tb", onclick: () => openItem(x) }, el("b", { text: x.titulo }),
-        el("small", null, el("span", { class: "cdot" }), (c ? c.nombre : "Sin contrato") + (x.inicio ? " · " + x.inicio : "") + (late ? " · venció " + fmtD(x.fecha) : "") + (x.prio === "alta" ? " · prioridad alta" : "") + (x.estado === "revision" ? " · ⧗ en revisión" : "") + (isSeries(x) ? " · ↻" : ""))),
+        el("small", null, el("span", { class: "cdot" }), (c ? c.nombre : "Sin contrato") + (x.inicio ? " · " + x.inicio : "") + (late ? " · venció " + fmtD(x.fecha) : "") + (notaAtraso(x) && x.estado !== "hecha" ? " · ↷ " + notaAtraso(x).toLowerCase() : "") + (x.prio === "alta" ? " · prioridad alta" : "") + (x.estado === "revision" ? " · ⧗ en revisión" : "") + (isSeries(x) ? " · ↻" : ""))),
       pb(x.resp));
   }
   function dayName(s) { const t0 = todayISO(); const d = parse(s); const base = DIAS[d.getDay()] + " " + d.getDate() + " " + MESES[d.getMonth()].slice(0, 3); return s === t0 ? "Hoy · " + base : s === iso(addDays(new Date(), 1)) ? "Mañana · " + base : base[0].toUpperCase() + base.slice(1); }
@@ -2422,7 +2442,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 11/11 16:13";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 12/11 14:46";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
