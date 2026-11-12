@@ -73,6 +73,7 @@ button { cursor: pointer; }
 .legend span { display: flex; align-items: center; gap: 8px; }
 .pb { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 16px; padding: 0 4px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: .02em; background: rgb(255 255 255 / .14); color: var(--ink); flex: none; }
 .pb.both { background: rgb(255 255 255 / .26); }
+.pb.prof { background: rgb(167 139 250 / .35); color: #ede9fe; }
 .clist { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
 .clist .filt { font-size: 12px; }
 .clist .filt .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -649,6 +650,7 @@ img { max-width: 100%; }
       <label class="filt"><input type="checkbox" id="f-p1" checked><span class="pb" id="b-p1">CO</span><span id="n-p1" title="Coordinador de liquidaciones">Coordinador</span><span class="n" id="c-p1"></span></label>
       <label class="filt"><input type="checkbox" id="f-p2" checked><span class="pb" id="b-p2">IN</span><span id="n-p2" title="Ingeniera de liquidaciones">Ingeniera</span><span class="n" id="c-p2"></span></label>
       <label class="filt"><input type="checkbox" id="f-both" checked><span class="pb both" id="b-both">CI</span><span>Compartidas (ambos)</span><span class="n" id="c-both"></span></label>
+      <label class="filt"><input type="checkbox" id="f-prof" checked><span class="pb prof">PR</span><span>Profesionales</span><span class="n" id="c-prof"></span></label>
     </div>
     <div class="filters">
       <div style="display: flex; justify-content: space-between; align-items: center;"><span class="lbl">Contratos</span><button type="button" class="link-btn" id="c-all">Ver todos</button></div>
@@ -794,7 +796,7 @@ window.startApp = () => {
   const S = {
     contracts: [], hideC: {},
     db: null, user: null, uid: null, items: [], hist: [], names: {}, people: { p1: "Coordinador", p2: "Ingeniera" },
-    view: "semana", cursor: new Date(), miniMonth: null, show: { p1: true, p2: true, ambos: true },
+    view: "semana", cursor: new Date(), miniMonth: null, show: { p1: true, p2: true, ambos: true, prof: true },
     loaded: false, readOnly: false, isOwner: false, editing: null, inst: null, tipo: "tarea", draftAv: [], histFilter: "todo"
   };
 
@@ -896,7 +898,7 @@ window.startApp = () => {
   }
   let toastT;
   function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2800); }
-  const pname = (k) => k === "ambos" ? "Ambos" : (S.people[k] || (k === "p2" ? "Ingeniera" : "Coordinador"));
+  const pname = (k) => k === "prof" ? "Profesionales" : k === "ambos" ? "Ambos" : (S.people[k] || (k === "p2" ? "Ingeniera" : "Coordinador"));
   const isLate = (x) => x.tipo === "tarea" && x.origen !== "outlook" && x.estado !== "hecha" && x.estado !== "revision" && x.fecha && x.fecha < todayISO();
   // Tareas no cumplidas: pasan solas al día siguiente y guardan para qué día eran
   const fechaOriginal = (x) => (x.atrasos && x.atrasos.length && x.atrasos[0].de) || x.fecha;
@@ -956,9 +958,9 @@ window.startApp = () => {
   const colorVars = (c) => "--c:" + c + ";--bgc:color-mix(in srgb, " + c + " 24%, #151b22)";
   const varsFor = (x) => colorVars(cColor(x));
   const initials = (n) => { const w = String(n || "").trim().split(/\s+/).filter(Boolean); return ((w[0] || "?")[0] + (w[1] ? w[1][0] : (w[0] || "")[1] || "")).toUpperCase(); };
-  const badgeText = (k) => k === "ambos" ? initials(pname("p1"))[0] + initials(pname("p2"))[0] : initials(pname(k));
-  const ROLE = { p1: "Coordinador de liquidaciones", p2: "Ingeniera de liquidaciones", ambos: "Coordinador e ingeniera" };
-  const pb = (k) => el("span", { class: "pb" + (k === "ambos" ? " both" : ""), title: pname(k) + (pname(k) !== ROLE[k] ? " · " + ROLE[k] : ""), text: badgeText(k) });
+  const badgeText = (k) => k === "prof" ? "PR" : k === "ambos" ? initials(pname("p1"))[0] + initials(pname("p2"))[0] : initials(pname(k));
+  const ROLE = { p1: "Coordinador de liquidaciones", p2: "Ingeniera de liquidaciones", ambos: "Coordinador e ingeniera", prof: "Otros profesionales del equipo" };
+  const pb = (k) => el("span", { class: "pb" + (k === "ambos" ? " both" : k === "prof" ? " prof" : ""), title: pname(k) + (pname(k) !== ROLE[k] ? " · " + ROLE[k] : ""), text: badgeText(k) });
   const repMark = (x) => isSeries(x) ? el("span", { class: "rep", title: repLabel(x.rep.freq, (x._series || x).fecha), text: "↻" }) : null;
   const canDrag = (x) => !S.readOnly && !!S.db && !x._series && x.origen !== "outlook";
 
@@ -972,9 +974,9 @@ window.startApp = () => {
     $("b-p1").textContent = badgeText("p1"); $("b-p2").textContent = badgeText("p2"); $("b-both").textContent = badgeText("ambos");
     const t0 = todayISO(), t7 = iso(addDays(new Date(), 7));
     const all = S.items.filter((x) => x.tipo === "tarea");
-    const pend = (() => { const save = S.hideC, saveS = S.show; S.hideC = {}; S.show = { p1: true, p2: true, ambos: true }; const p = pendingTasks(); const m = instancesIn(t0, t7).filter((x) => x.tipo === "reunion"); S.hideC = save; S.show = saveS; return p.concat(m); })();
+    const pend = (() => { const save = S.hideC, saveS = S.show; S.hideC = {}; S.show = { p1: true, p2: true, ambos: true, prof: true }; const p = pendingTasks(); const m = instancesIn(t0, t7).filter((x) => x.tipo === "reunion"); S.hideC = save; S.show = saveS; return p.concat(m); })();
     const cnt = (f) => S.loaded ? String(pend.filter(f).length || "") : "";
-    $("c-p1").textContent = cnt((x) => x.resp === "p1"); $("c-p2").textContent = cnt((x) => x.resp === "p2"); $("c-both").textContent = cnt((x) => x.resp === "ambos");
+    $("c-p1").textContent = cnt((x) => x.resp === "p1"); $("c-p2").textContent = cnt((x) => x.resp === "p2"); $("c-both").textContent = cnt((x) => x.resp === "ambos"); $("c-prof").textContent = cnt((x) => x.resp === "prof");
     const todosOcultos = S.contracts.length && S.contracts.every((c) => S.hideC[c.id]) && S.hideC._none;
     $("c-all").textContent = todosOcultos ? "Ver todos" : "Ocultar todos";
     const list = $("clist"); list.replaceChildren();
@@ -1212,7 +1214,7 @@ window.startApp = () => {
     $("l-fecha").textContent = r ? "Fecha" : (S.editing && isSeries(S.items.find((y) => y.id === S.editing)) ? "Empieza el" : "Fecha límite"); $("l-ini").textContent = r ? "Empieza" : "Hora (opcional)";
     $("w-fin").hidden = !r; $("w-lugar").hidden = !r; $("w-task-extra").hidden = r;
     const sel = $("i-resp"), cur = sel.value;
-    sel.replaceChildren(...["p1", "p2", "ambos"].map((k) => el("option", { value: k, text: k === "ambos" ? (r ? "Ambos" : "Ambos · tarea compartida") : pname(k) })));
+    sel.replaceChildren(...["p1", "p2", "ambos", "prof"].map((k) => el("option", { value: k, text: k === "ambos" ? (r ? "Ambos" : "Ambos · tarea compartida") : pname(k) })));
     sel.value = cur || "p1";
   }
   function renderAv() {
@@ -1265,7 +1267,7 @@ window.startApp = () => {
     const ser = isSeries(series);
     if (ser) $("l-fecha").textContent = "Primera fecha";
     $("rep-note").hidden = !ser; if (ser) $("rep-note").textContent = "Es una serie" + (S.inst ? " (abriste la del " + fmtDL(S.inst._date) + ")" : "") + ": lo que cambies aquí aplica a todas las fechas." + (series.tipo === "tarea" ? " Cada fecha se marca como hecha por separado desde su casilla." : "");
-    if (!ser && x.tipo === "tarea" && notaAtraso(x)) { $("rep-note").hidden = false; $("rep-note").textContent = "⚠ " + notaAtraso(x) + ". Se pasó sola al día siguiente; el informe la mide contra la fecha original (" + fmtD(fechaOriginal(x)) + ")."; }
+    if (!ser && x && x.tipo === "tarea" && notaAtraso(x)) { $("rep-note").hidden = false; $("rep-note").textContent = "⚠ " + notaAtraso(x) + ". Se pasó sola al día siguiente; el informe la mide contra la fecha original (" + fmtD(fechaOriginal(x)) + ")."; }
     $("i-estado").closest(".field").hidden = ser;
     $("tipo-seg").hidden = !!series;
     $("btn-del").hidden = !series; $("btn-del").classList.remove("armed"); $("btn-del").textContent = ser ? "Eliminar toda la serie" : "Eliminar";
@@ -1497,7 +1499,7 @@ window.startApp = () => {
     return svg;
   }
   function datosInforme() {
-    const guarda = [S.hideC, S.show]; S.hideC = {}; S.show = { p1: true, p2: true, ambos: true };
+    const guarda = [S.hideC, S.show]; S.hideC = {}; S.show = { p1: true, p2: true, ambos: true, prof: true };
     try { return datosInforme0(); } finally { [S.hideC, S.show] = guarda; }
   }
   function datosInforme0() {
@@ -1614,7 +1616,7 @@ window.startApp = () => {
     }
     if ((m = take(/\s@(\w+)/))) {
       const q = m[1]; const n1 = fold(pname("p1")), n2 = fold(pname("p2"));
-      r.resp = /^(ambos|los2|todos|equipo)/.test(q) ? "ambos" : (n1.startsWith(q) || /^(coord|titular|yo$|co$)/.test(q) || "coordinador".startsWith(q)) ? "p1" : (n2.startsWith(q) || /^(ing|aux|liq)/.test(q) || "ingeniera".startsWith(q)) ? "p2" : "";
+      r.resp = /^(ambos|los2|todos|equipo)/.test(q) ? "ambos" : /^(prof|otros|externo)/.test(q) ? "prof" : (n1.startsWith(q) || /^(coord|titular|yo$|co$)/.test(q) || "coordinador".startsWith(q)) ? "p1" : (n2.startsWith(q) || /^(ing|aux|liq)/.test(q) || "ingeniera".startsWith(q)) ? "p2" : "";
       if (!r.resp) r.warn.push("No reconocí a @" + m[1]);
     }
     if (take(/\s!(?:alta|urgente)?(?=\s)/) || take(/\s(urgente)(?=\s)/)) r.prio = "alta";
@@ -1752,7 +1754,7 @@ window.startApp = () => {
   $("prev").onclick = () => shift(-1); $("next").onclick = () => shift(1); $("today").onclick = () => { S.cursor = new Date(); S.miniMonth = null; render(); };
   $("mini-prev").onclick = () => { S.miniMonth = new Date(S.miniMonth.getFullYear(), S.miniMonth.getMonth() - 1, 1); renderMini(); };
   $("mini-next").onclick = () => { S.miniMonth = new Date(S.miniMonth.getFullYear(), S.miniMonth.getMonth() + 1, 1); renderMini(); };
-  [["f-p1","p1"],["f-p2","p2"],["f-both","ambos"]].forEach(([id, k]) => $(id).addEventListener("change", (e) => { S.show[k] = e.target.checked; renderView(); }));
+  [["f-p1","p1"],["f-p2","p2"],["f-both","ambos"],["f-prof","prof"]].forEach(([id, k]) => $(id).addEventListener("change", (e) => { S.show[k] = e.target.checked; renderView(); }));
   $("btn-meet").onclick = () => openNew({ tipo: "reunion", fecha: S.view === "semana" && iso(monday(S.cursor)) > todayISO() ? iso(monday(S.cursor)) : todayISO(), inicio: "09:00" });
   $("btn-task").onclick = () => openNew({ tipo: "tarea" });
   document.querySelectorAll("#tipo-seg [data-tipo]").forEach((b) => (b.onclick = () => { setTipo(b.dataset.tipo); $("dlg-title").textContent = S.tipo === "reunion" ? "Nueva reunión" : "Nueva tarea"; if (S.tipo === "reunion") { if (!$("i-fecha").value) $("i-fecha").value = todayISO(); if (!$("i-ini").value) { $("i-ini").value = "09:00"; $("i-fin").value = "10:00"; } } }));
@@ -2442,7 +2444,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 12/11 14:46";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 12/11 15:00";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
