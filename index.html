@@ -2284,10 +2284,18 @@ window.startApp = () => {
 
   // ---------- cambios en vivo: un canal por tabla ----------
   const oyentes = {};
+  // Avisa a las vistas que una tabla cambió (por tiempo real, por un cambio propio o por la revisión periódica)
+  const refrescar = (tabla) => (oyentes[tabla] || []).forEach((f) => f());
+  const refrescarTodo = () => Object.keys(oyentes).forEach(refrescar);
+  // Respaldo por si el tiempo real se corta: revisa al volver a la pestaña y cada 20 s mientras está visible
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refrescarTodo(); });
+  window.addEventListener("focus", refrescarTodo);
+  setInterval(() => { if (document.visibilityState === "visible") refrescarTodo(); }, 20000);
   function escuchar(tabla, fn) {
     if (!oyentes[tabla]) {
       oyentes[tabla] = new Set();
-      sb.channel("cambios-" + tabla).on("postgres_changes", { event: "*", schema: "public", table: tabla }, () => oyentes[tabla].forEach((f) => f())).subscribe();
+      sb.channel("cambios-" + tabla).on("postgres_changes", { event: "*", schema: "public", table: tabla }, () => refrescar(tabla))
+        .subscribe((estado) => { window.__diag["tiempo-real " + tabla] = estado; if (estado === "SUBSCRIBED") refrescar(tabla); });
     }
     oyentes[tabla].add(fn);
     return () => oyentes[tabla].delete(fn);
@@ -2333,12 +2341,14 @@ window.startApp = () => {
       async get() { const r = await todas(tabla); return snapDocs(ok(r)); },
       onSnapshot(next, onErr) {
         let vivo = true;
-        let turno = 0; // si llegan dos lecturas cruzadas, solo cuenta la más reciente
-        const cargar = async () => { const mio = ++turno; const r = await todas(tabla); if (!vivo || mio !== turno) return; if (r.error) { aviso(r.error, tabla); if (onErr) onErr(err(r.error)); return; } window.__diag[tabla] = r.data.length; console.info("Supabase", tabla, r.data.length, "filas"); next(snapDocs(r.data)); };
+        let turno = 0, firma = ""; // si llegan dos lecturas cruzadas, solo cuenta la más reciente
+        const cargar = async () => { const mio = ++turno; const r = await todas(tabla); if (!vivo || mio !== turno) return;
+          if (!r.error) { const f = JSON.stringify(r.data); if (f === firma) return; firma = f; } /* sin cambios: no se vuelve a pintar (no interrumpe lo que se está escribiendo) */
+          if (r.error) { aviso(r.error, tabla); if (onErr) onErr(err(r.error)); return; } window.__diag[tabla] = r.data.length; console.info("Supabase", tabla, r.data.length, "filas"); next(snapDocs(r.data)); };
         cargar(); const off = escuchar(tabla, demorar(cargar, 250));
         return () => { vivo = false; off(); };
       },
-      async add(data) { const id = newId(); ok(await sb.from(tabla).insert({ id, data })); return { id }; },
+      async add(data) { const id = newId(); ok(await sb.from(tabla).insert({ id, data })); refrescar(tabla); return { id }; },
       doc(id) { return documento(tabla + "/" + (id || newId())); }
     };
     return q;
@@ -2349,9 +2359,9 @@ window.startApp = () => {
     const leer = async () => { const q = await sb.from(tabla).select("id,data").eq("id", id).maybeSingle(); if (q.error) { aviso(q.error, ruta); throw err(q.error); } const r = q.data; window.__diag[ruta] = !!r; return { id, exists: !!r, data: () => (r ? r.data : undefined) }; };
     return {
       id, path: ruta, get: leer,
-      async set(data) { ok(await sb.from(tabla).upsert({ id, data, actualizado: new Date().toISOString() })); },
-      async update(patch) { const cur = await leer(); if (!cur.exists) throw { code: "invalid_argument", message: "No existe" }; ok(await sb.from(tabla).update({ data: Object.assign({}, cur.data(), patch), actualizado: new Date().toISOString() }).eq("id", id)); },
-      async delete() { ok(await sb.from(tabla).delete().eq("id", id)); },
+      async set(data) { ok(await sb.from(tabla).upsert({ id, data, actualizado: new Date().toISOString() })); refrescar(tabla); },
+      async update(patch) { const cur = await leer(); if (!cur.exists) throw { code: "invalid_argument", message: "No existe" }; ok(await sb.from(tabla).update({ data: Object.assign({}, cur.data(), patch), actualizado: new Date().toISOString() }).eq("id", id)); refrescar(tabla); },
+      async delete() { ok(await sb.from(tabla).delete().eq("id", id)); refrescar(tabla); },
       onSnapshot(next, onErr) {
         let vivo = true;
         const cargar = async () => { try { const s = await leer(); if (vivo) next(s); } catch (e) { if (onErr) onErr(e); } };
@@ -2422,11 +2432,22 @@ window.startApp = () => {
   $("lg-back").onclick = () => { paso(1); msg(""); };
   $("lg-out").onclick = async () => { await sb.auth.signOut(); location.reload(); };
 
+  // Recordar el correo y detectar por qué el navegador pide entrar otra vez
+  const guardar = (() => { try { localStorage.setItem("agenda-prueba", "1"); localStorage.removeItem("agenda-prueba"); return true; } catch (_) { return false; } })();
+  const recordado = (() => { try { return localStorage.getItem("agenda-correo") || ""; } catch (_) { return ""; } })();
+  function pedirIngreso() {
+    paso(1); $("login").hidden = false;
+    if (recordado) { $("lg-email").value = recordado; setTimeout(() => $("lg-pass").focus(), 50); }
+    if (!guardar) msg("Este navegador no está guardando datos del sitio (modo incógnito o protección de privacidad), por eso pide entrar cada vez. Ábrelo en una ventana normal o permite los datos de lucho1906.github.io.", true);
+    else if (recordado) msg("Tu sesión anterior se cerró. Si pasa cada vez que recargas, revisa que el navegador no borre los datos del sitio al cerrar y que no estés en modo incógnito.");
+  }
   let arrancado = false;
   async function arrancar(session) {
     if (arrancado || !session) return;
     arrancado = true;
     const email = (session.user.email || "").toLowerCase();
+    try { localStorage.setItem("agenda-correo", email); } catch (_) {}
+    try { sb.realtime.setAuth(session.access_token); } catch (_) {}
     const r = await sb.from("miembros").select("email,rol,nombre");
     if (r.error) aviso(r.error, "miembros");
     miembros = r.data || [];
@@ -2438,13 +2459,13 @@ window.startApp = () => {
     sincronizarOutlook(false);
     setInterval(() => sincronizarOutlook(false), 10 * 60 * 1000);
   }
-  sb.auth.getSession().then(({ data }) => { if (data.session) arrancar(data.session); else { paso(1); $("login").hidden = false; } });
+  sb.auth.getSession().then(({ data }) => { if (data.session) arrancar(data.session); else pedirIngreso(); });
   sb.auth.onAuthStateChange((ev, session) => { if (ev === "SIGNED_IN" && session) arrancar(session); });
 
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 12/11 15:00";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 12/11 15:05";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
