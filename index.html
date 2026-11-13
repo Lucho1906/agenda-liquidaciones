@@ -1422,7 +1422,7 @@ window.startApp = () => {
         kpi(cerradas.length, "cerradas la semana pasada")),
       cerradas.length ? el("div", { class: "muted" }, "Cerradas la semana pasada: ", porPersona.map(([k, n]) => pname(k) + " " + n).join(" · ")) : null,
       vence.length ? el("div", { class: "wk-list" }, el("span", { class: "lbl", text: "Vence esta semana" }), vence.slice(0, 6).map((x) => el("button", { type: "button", class: "wk-it", style: varsFor(x), onclick: () => openItem(x) }, el("span", { class: "dot" }), el("span", { class: "tx", text: x.titulo }), el("span", { class: "muted", text: fmtDL(x.fecha) }), pb(x.resp))), vence.length > 6 ? el("span", { class: "muted", text: "y " + (vence.length - 6) + " más" }) : null) : null,
-      liqs.length ? el("div", { class: "wk-list" }, el("span", { class: "lbl", text: "Avance de liquidaciones" }), liqs.map(([c, st]) => el("button", { type: "button", class: "wk-liq", style: colorVars(c.color), onclick: () => openLiq(c.id) }, el("span", { class: "tx", text: c.nombre }), el("span", { class: "wk-bar" }, el("i", { style: "width:" + (st.total ? Math.round(st.done / st.total * 100) : 0) + "%" })), el("b", { text: (st.total ? Math.round(st.done / st.total * 100) : 0) + "%" })))) : null);
+      liqs.length ? el("div", { class: "wk-list" }, el("span", { class: "lbl", text: "Avance de liquidaciones" }), liqs.map(([c, st]) => el("button", { type: "button", class: "wk-liq", style: colorVars(c.color), onclick: () => openLiq(c.id) }, el("span", { class: "tx", text: c.nombre }), el("span", { class: "wk-bar" }, el("i", { style: "width:" + st.pct + "%" })), el("b", { text: st.pct + "%" })))) : null);
     d.addEventListener("toggle", () => { try { localStorage.setItem("resumen-" + a, d.open ? "1" : "0"); } catch (_) {} });
     return d;
   }
@@ -1522,7 +1522,7 @@ window.startApp = () => {
     const m = metricas(R.a, R.b, "equipo"), mp = metricas(P.a, P.b, "equipo");
     const pers = ["p1", "p2", "prof"].map((k) => ({ k, m: metricas(R.a, R.b, k), mp: metricas(P.a, P.b, k) }));
     const hs = histEn(R.a, R.b);
-    const liqs = S.contracts.filter((c) => !c.archivado && c.fase === "liquidacion" && S.liq[c.id]).map((c) => { const st = liqStats(c.id); return { c, st, pct: st.total ? Math.round(st.done / st.total * 100) : 0 }; });
+    const liqs = S.contracts.filter((c) => !c.archivado && c.fase === "liquidacion" && S.liq[c.id]).map((c) => { const st = liqStats(c.id); return { c, st, pct: st.pct }; });
     const req = reqCerrados(R.a, R.b);
     // Por proyecto y consolidado
     const activo = (o) => o.conFecha + o.cerradas + o.vencidas > 0;
@@ -1530,8 +1530,8 @@ window.startApp = () => {
       .concat([{ c: null, cid: "" }])
       .map((o) => Object.assign(o, { eq: metricas(R.a, R.b, "equipo", o.cid), pr: metricas(R.a, R.b, "prof", o.cid), liq: liqs.find((l) => o.c && l.c.id === o.c.id) || null, req: req[o.cid] || 0 }))
       .filter((o) => activo(o.eq) || activo(o.pr) || o.liq || o.req);
-    const totDone = liqs.reduce((t, l) => t + l.st.done, 0), totP = liqs.reduce((t, l) => t + l.st.total, 0);
-    const cons = { eq: m, pr: pers[2].m, liqPct: totP ? Math.round(totDone / totP * 100) : null, liqDone: totDone, liqTotal: totP, req: Object.values(req).reduce((t, n) => t + n, 0) };
+    const totDone = liqs.reduce((t, l) => t + l.st.done, 0), totP = liqs.reduce((t, l) => t + l.st.total, 0), totPts = liqs.reduce((t, l) => t + l.st.pts, 0);
+    const cons = { eq: m, pr: pers[2].m, liqPct: totP ? Math.round(totPts / totP * 100) : null, liqDone: totDone, liqTotal: totP, req: Object.values(req).reduce((t, n) => t + n, 0) };
     return { R, P, hist, m, mp, pers, liqs, proy, cons, req, aprob: hs.filter((h) => h.accion === "aprobar").length, devol: hs.filter((h) => h.accion === "devolver").length, enviadas: hs.filter((h) => h.accion === "revision").length, aten: atencion() };
   }
   function tablaProyectos(D) {
@@ -1592,8 +1592,8 @@ window.startApp = () => {
           kpi("Vencidas abiertas", m.vencidas, fmtN, delta(m.vencidas, mp.vencidas, "down"), D.hist.map((h) => h.m && h.m.vencidas)),
           kpi("Horas en reuniones", m.horas, fmtH, delta(m.horas, mp.horas, "flat", " h"), D.hist.map((h) => h.m && h.m.horas), m.reuniones + (m.reuniones === 1 ? " reunión" : " reuniones"))),
         el("div", { class: "two" },
-          el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Avance de liquidación por contrato" }), el("span", { class: "muted", text: "requisitos principales cerrados" })),
-            el("div", null, D.liqs.sort((x, y) => y.pct - x.pct).map((o) => el("div", { class: "hbar", style: colorVars(o.c.color), title: o.c.nombre + ": " + o.st.done + " de " + o.st.total + " requisitos principales cerrados (" + o.pct + "%)" }, el("span", { class: "tx", text: o.c.nombre }), el("span", { class: "track" }, el("span", { class: "fill", style: "width:" + o.pct + "%" })), el("span", { class: "n", text: o.pct + "%" })))),
+          el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Avance de liquidación por contrato" }), el("span", { class: "muted", text: "ponderado por etapa" })),
+            el("div", null, D.liqs.sort((x, y) => y.pct - x.pct).map((o) => el("div", { class: "hbar", style: colorVars(o.c.color), title: o.c.nombre + ": avance ponderado " + o.pct + "% · " + o.st.done + " de " + o.st.total + " requisitos principales cerrados (" + o.st.pctC + "%)\n" + PESO_TXT }, el("span", { class: "tx", text: o.c.nombre }), el("span", { class: "track" }, el("span", { class: "fill", style: "width:" + o.pct + "%" })), el("span", { class: "n", text: o.pct + "%" })))),
             el("span", { class: "muted", text: totalReq ? "En el periodo se cerraron " + totalReq + (totalReq === 1 ? " requisito" : " requisitos") + ": " + Object.entries(D.req).map(([id, n]) => (S.contracts.find((c) => c.id === id) || { nombre: "otro" }).nombre + " " + n).join(", ") + "." : "En el periodo no se registraron requisitos cerrados." })),
           el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Requiere atención" }), el("span", { class: "muted", text: "a hoy · próximos 5 días hábiles" })),
             D.aten.length ? el("ul", { class: "att" }, D.aten.map((x) => el("li", null, el("span", { class: "chip " + x.cls }, el("i", { text: x.ic }), x.et), el("span", null, el("b", { text: x.txt }), el("br"), el("span", { class: "muted", text: x.det }))))) : el("p", { class: "muted", text: "Nada vencido ni con plazo en los próximos 5 días hábiles." }))),
@@ -1607,7 +1607,7 @@ window.startApp = () => {
           el("dt", { text: "Horas en reuniones" }), el("dd", { text: "Suma de la duración de las reuniones del periodo, propias y de Outlook (sin las ocultas). Los eventos de día completo no suman. En cada persona cuentan sus reuniones y las de ambos." }),
           el("dt", { text: "Equipo y profesionales" }), el("dd", { text: "Los indicadores del encabezado son del equipo (coordinador, ingeniera y tareas compartidas). Las tareas a nombre de «Profesionales» se miden aparte, por proyecto, y no suben ni bajan los del equipo." }),
           el("dt", { text: "Indicadores por proyecto" }), el("dd", { text: "Las mismas medidas, filtradas por el contrato de cada tarea. La fila «Consolidado» suma todos los proyectos, incluidas las tareas sin contrato." }),
-          el("dt", { text: "Avance de liquidación" }), el("dd", { text: "Requisitos principales aprobados por IDU o por la ESP ÷ total de requisitos principales del contrato, a hoy." }),
+          el("dt", { text: "Avance de liquidación" }), el("dd", { text: "Promedio de los requisitos principales del contrato según su etapa, a hoy: " + PESO_TXT + "." }),
           el("dt", { text: "Requisitos cerrados en el periodo" }), el("dd", { text: "Cambios a «Aprobado por IDU» o «Aprobado por la ESP» registrados en el historial dentro del periodo; cada requisito cuenta una vez." }),
           el("dt", { text: "Revisiones" }), el("dd", { text: "Aprobaciones, devoluciones y envíos a revisión registrados en el historial dentro del periodo." }))),
         el("div", { class: "foot" }, el("span", { text: "Generado desde la Agenda de liquidaciones · solo visible para el coordinador" }), el("span", { text: "Incluye todos los contratos y personas, sin importar los filtros de la barra lateral" })))));
@@ -1623,8 +1623,8 @@ window.startApp = () => {
     const fila = (n, eq, pr, liq, req) => [n, eq.cumplimiento ?? "", eq.cerradas, eq.vencidas, pr.cumplimiento ?? "", pr.conFecha, pr.vencidas, liq ?? "", req];
     D.proy.forEach((o) => rows.push(fila(o.c ? cLabel(o.c) : "Sin contrato", o.eq, o.pr, o.liq ? o.liq.pct : "", o.req)));
     rows.push(fila("Consolidado", D.cons.eq, D.cons.pr, D.cons.liqPct, D.cons.req));
-    rows.push([], ["Revisiones aprobadas", D.aprob], ["Devueltas para corregir", D.devol], ["Enviadas a revisión", D.enviadas], [], ["Contrato", "Avance (%)", "Principales cerrados", "Total principales", "Cerrados en el periodo"]);
-    D.liqs.forEach((o) => rows.push([cLabel(o.c), o.pct, o.st.done, o.st.total, D.req[o.c.id] || 0]));
+    rows.push([], ["Revisiones aprobadas", D.aprob], ["Devueltas para corregir", D.devol], ["Enviadas a revisión", D.enviadas], [], ["Contrato", "Avance ponderado (%)", "Cerrados (%)", "Principales cerrados", "Total principales", "Cerrados en el periodo"]);
+    D.liqs.forEach((o) => rows.push([cLabel(o.c), o.pct, o.st.pctC, o.st.done, o.st.total, D.req[o.c.id] || 0]));
     rows.push([], ["Requiere atención", "Detalle"]); D.aten.forEach((x) => rows.push([x.et + " · " + x.txt, x.det]));
     const csv = "﻿" + rows.map((rw) => rw.map((c) => '"' + String(c ?? "").replace(/"/g, '""') + '"').join(";")).join("\r\n");
     let dl = null; try { dl = await window.claude?.use?.("downloads"); } catch {}
@@ -1828,6 +1828,9 @@ window.startApp = () => {
   const FASES = { liquidacion: "En liquidación", ejecucion: "En ejecución", garantias: "En garantías", definir: "Por definir" };
   const TIPOS = { construccion: "Construcción", conservacion: "Conservación", otro: "Otro" };
   const DONE_EST = "APROBADO POR IDU";
+  // Avance ponderado: cada requisito principal suma según la etapa en que va
+  const PESO = { "EN PROCESO": 0, "RADICADO A INT": 0.25, "RADICADO A IDU": 0.5, "RADICADO A LA ESP": 0.6, "APROBADO POR LA ESP": 1, "APROBADO POR IDU": 1 };
+  const PESO_TXT = "En proceso 0% · Radicado a interventoría 25% · Radicado a IDU 50% · Radicado a la ESP 60% · Aprobado (IDU o ESP) 100%";
   // Un requisito queda cerrado cuando lo aprueba el IDU o la ESP.
   const cerrado = (s) => s === "APROBADO POR IDU" || s === "APROBADO POR LA ESP";
   // Ya radicado o aprobado: el plazo de entrega se cumplió, así que no cuenta como vencido
@@ -1891,7 +1894,8 @@ window.startApp = () => {
     const ps = its.filter((x) => x.n === "p"), cnt = {}; EST.forEach((e) => (cnt[e] = 0));
     ps.forEach((x) => { if (cnt[x.s] != null) cnt[x.s]++; else cnt["EN PROCESO"]++; });
     const pend = its.filter((x) => (x.n === "p" || x.n === "e") && !entregado(x.s) && x.pl);
-    return { total: ps.length, cnt, done: cnt["APROBADO POR IDU"] + cnt["APROBADO POR LA ESP"], late: pend.filter((x) => x.pl < t0).length, lateP: pend.filter((x) => x.pl < t0 && x.n === "p").length, lateE: pend.filter((x) => x.pl < t0 && x.n === "e").length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
+    const pts = EST.reduce((t, e) => t + cnt[e] * PESO[e], 0), done = cnt["APROBADO POR IDU"] + cnt["APROBADO POR LA ESP"];
+    return { total: ps.length, cnt, done, pts, pct: ps.length ? Math.round(pts / ps.length * 100) : 0, pctC: ps.length ? Math.round(done / ps.length * 100) : 0, late: pend.filter((x) => x.pl < t0).length, lateP: pend.filter((x) => x.pl < t0 && x.n === "p").length, lateE: pend.filter((x) => x.pl < t0 && x.n === "e").length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
   }
   const stackBar = (cnt) => el("div", { class: "sbar", title: EST.map((e) => EST_L[e] + ": " + cnt[e]).join("\n") }, EST.map((e) => cnt[e] ? el("span", { style: "flex:" + cnt[e] + ";background:" + EST_C[e] }) : null));
   function liqDue(from, to) {
@@ -2018,7 +2022,7 @@ window.startApp = () => {
     const st = liqStats(c.id);
     return el("button", { type: "button", class: "lq-card", style: colorVars(c.color), onclick: () => openLiq(c.id) },
       el("div", { class: "lq-ch" }, el("span", { class: "dot" }), el("b", { text: c.nombre }), el("span", { class: "cd", text: c.codigo }), c.tipo ? el("span", { class: "tag", text: TIPOS[c.tipo] || c.tipo }) : null),
-      st.has ? [el("div", { class: "lq-pct" }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales cerrados (aprobados por IDU o por la ESP)" })), stackBar(st.cnt),
+      st.has ? [el("div", { class: "lq-pct", title: "Avance ponderado por etapa\n" + PESO_TXT }, el("b", { text: st.total ? st.pct + "%" : "–" }), el("span", { text: "avance · " + st.done + " de " + st.total + " principales cerrados (" + st.pctC + "%)" })), stackBar(st.cnt),
         el("div", { class: "lq-meta" }, st.late ? el("span", { class: "late", text: st.late + " con plazo vencido" }) : el("span", { text: "Sin plazos vencidos" }), st.next ? el("span", { text: "Próximo plazo: " + fmtD(st.next) }) : null)]
         : el("span", { class: "muted", text: "Aún no tiene lista de chequeo cargada." }),
       legalLine(c));
@@ -2068,10 +2072,10 @@ window.startApp = () => {
     }
     const items = annotate(liqItems(c.id)), st = liqStats(c.id);
     parts.push(el("div", { class: "lq-stats" },
-      el("div", { class: "lq-pct", style: colorVars(c.color) }, el("b", { text: st.total ? Math.round(st.done / st.total * 100) + "%" : "–" }), el("span", { text: st.done + " de " + st.total + " requisitos principales cerrados (aprobados por IDU o por la ESP)" + (st.late ? " · " : "") }, st.late ? el("span", { class: "late", text: "plazo vencido: " + st.lateP + (st.lateP === 1 ? " principal" : " principales") + " y " + st.lateE + (st.lateE === 1 ? " entregable" : " entregables") }) : null)),
+      el("div", { class: "lq-pct", style: colorVars(c.color), title: "Avance ponderado por etapa\n" + PESO_TXT }, el("b", { text: st.total ? st.pct + "%" : "–" }), el("span", { text: "avance ponderado por etapa · " + st.done + " de " + st.total + " principales cerrados (" + st.pctC + "%)" + (st.late ? " · " : "") }, st.late ? el("span", { class: "late", text: "plazo vencido: " + st.lateP + (st.lateP === 1 ? " principal" : " principales") + " y " + st.lateE + (st.lateE === 1 ? " entregable" : " entregables") }) : null)),
       stackBar(st.cnt),
       el("div", { class: "est-legend" }, EST.map((e) => el("span", null, el("i", { style: "background:" + EST_C[e] }), EST_L[e] + " ", el("b", { text: String(st.cnt[e]) })))),
-      el("span", { class: "muted", text: "Resumen del contrato: requisitos principales en cada estado." })));
+      el("span", { class: "muted", text: "Requisitos principales en cada estado. El avance suma por etapa: " + PESO_TXT + "." })));
     const imp = items.filter((x) => x.n === "x");
     if (imp.length) parts.push(el("div", { class: "lq-imp" }, el("b", { text: "Importantes" }), imp.map((x) => el("span", { text: x.q + (x.o ? " — " + x.o : "") }))));
     const kv = (rows) => el("div", { class: "kv" }, rows.flatMap((r) => r.length < 2 ? [el("span", { class: "hd", text: String(r[0]) })] : [el("span", { text: String(r[0]) }), el("span", { text: money(r[1]) })]));
@@ -2512,7 +2516,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 13/11 11:28";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 13/11 18:02";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
