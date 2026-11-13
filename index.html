@@ -276,10 +276,13 @@ dialog { overflow: auto; }
 .inf2 .sec { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .inf2 .sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
 .inf2 .sec-h h4 { margin: 0; font-size: 14.5px; }
-.inf2 .hbar { display: grid; grid-template-columns: 130px minmax(0, 1fr) 44px; gap: 10px; align-items: center; font-size: 12.5px; padding: 5px 0; }
+.inf2 .hbar { display: grid; grid-template-columns: 130px minmax(0, 1fr) 92px; gap: 10px; align-items: center; font-size: 12.5px; padding: 5px 0; }
 .inf2 .hbar .tx { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .inf2 .hbar .track { height: 12px; background: var(--card); border-radius: 4px; overflow: hidden; display: block; }
-.inf2 .hbar .fill { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--c); }
+.inf2 .hbar .track { position: relative; }
+.inf2 .hbar .fill { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--c); opacity: .45; }
+.inf2 .hbar .fill.ce { position: absolute; left: 0; top: 0; opacity: 1; }
+.inf2 .hbar .n small { color: var(--muted); font-weight: 400; }
 .inf2 .hbar .n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 .inf2 .att { margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
 .inf2 .att li { list-style: none; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 12.5px; }
@@ -449,6 +452,27 @@ dialog::backdrop { background: rgb(0 0 0 / .55); }
 .cd { color: var(--muted); font-size: 11.5px; }
 .tag { font-size: 10.5px; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--muted); white-space: nowrap; }
 .lq-pct { display: flex; align-items: baseline; gap: 10px; }
+.lq-duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 24px; }
+.lq-ind { display: grid; gap: 5px; min-width: 0; }
+.lq-ind .lbl { font-size: 12.5px; font-weight: 600; }
+.lq-ind b { font-size: 30px; font-weight: 700; line-height: 1.1; color: var(--ic); font-variant-numeric: tabular-nums; }
+.lq-ind .bar { height: 8px; border-radius: 999px; background: var(--card); overflow: hidden; }
+.lq-ind .bar i { display: block; height: 100%; background: var(--ic); }
+.lq-ind small { font-size: 12px; color: var(--muted); }
+.lq-gap { font-size: 12.5px; color: var(--ink); background: var(--card); border-radius: 8px; padding: 7px 10px; }
+.lq-gap .late, .lq-pct .late { color: var(--late); }
+.lq-curva { background: var(--side); border-radius: 12px; padding: 12px; }
+.lq-curva > summary { cursor: pointer; font-weight: 600; }
+.lq-curva .cv-k { display: flex; flex-wrap: wrap; gap: 8px 26px; margin: 10px 0 4px; }
+.lq-curva .cv-k div { display: grid; }
+.lq-curva .cv-k b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.lq-curva .cv-k span { font-size: 11.5px; color: var(--muted); }
+.lq-curva .cv-k .neg b { color: var(--late); } .lq-curva .cv-k .pos b { color: var(--done); }
+.lq-curva svg { width: 100%; height: auto; display: block; }
+.lq-curva .cv-leg { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--muted); }
+.lq-curva .cv-leg i { display: inline-block; width: 16px; height: 0; border-top: 3px solid var(--c); vertical-align: middle; margin-right: 6px; }
+.lq-curva .cv-leg i.pl { border-top: 2px dashed var(--muted); }
+
 .lq-pct b { font-size: 26px; font-weight: 700; color: var(--c); font-variant-numeric: tabular-nums; }
 .lq-pct span { font-size: 12px; color: var(--muted); }
 .sbar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--card); gap: 2px; }
@@ -1531,7 +1555,7 @@ window.startApp = () => {
       .map((o) => Object.assign(o, { eq: metricas(R.a, R.b, "equipo", o.cid), pr: metricas(R.a, R.b, "prof", o.cid), liq: liqs.find((l) => o.c && l.c.id === o.c.id) || null, req: req[o.cid] || 0 }))
       .filter((o) => activo(o.eq) || activo(o.pr) || o.liq || o.req);
     const totDone = liqs.reduce((t, l) => t + l.st.done, 0), totP = liqs.reduce((t, l) => t + l.st.total, 0), totPts = liqs.reduce((t, l) => t + l.st.pts, 0);
-    const cons = { eq: m, pr: pers[2].m, liqPct: totP ? Math.round(totPts / totP * 100) : null, liqDone: totDone, liqTotal: totP, req: Object.values(req).reduce((t, n) => t + n, 0) };
+    const cons = { eq: m, pr: pers[2].m, liqPct: totP ? Math.round(totPts / totP * 100) : null, liqPctC: totP ? Math.round(totDone / totP * 100) : null, liqDone: totDone, liqTotal: totP, req: Object.values(req).reduce((t, n) => t + n, 0) };
     return { R, P, hist, m, mp, pers, liqs, proy, cons, req, aprob: hs.filter((h) => h.accion === "aprobar").length, devol: hs.filter((h) => h.accion === "devolver").length, enviadas: hs.filter((h) => h.accion === "revision").length, aten: atencion() };
   }
   function tablaProyectos(D) {
@@ -1541,7 +1565,7 @@ window.startApp = () => {
       el("td", { class: "num sep", text: pct(pr.cumplimiento) }), el("td", { class: "num", text: String(pr.conFecha) }), el("td", { class: "num" + (pr.vencidas ? " bad" : ""), text: String(pr.vencidas) }),
       el("td", { class: "num sep", text: liqTxt }), el("td", { class: "num", text: String(req) })];
     const filas = D.proy.map((o) => el("tr", null, el("td", null, o.c ? el("span", { class: "pdot", style: "--c:" + o.c.color }) : null, o.c ? o.c.nombre : "Sin contrato", o.c ? el("small", { class: "muted", text: " " + o.c.codigo.replace(/^IDU-/, "") }) : null),
-      ...celdas(o.eq, o.pr, o.liq ? o.liq.pct + "%" : "—", o.req)));
+      ...celdas(o.eq, o.pr, o.liq ? o.liq.pct + "% · " + o.liq.st.pctC + "%" : "—", o.req)));
     const C = D.cons;
     return el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Indicadores por proyecto" }), el("span", { class: "muted", text: "equipo y profesionales por separado · consolidado al final" })),
       el("div", { class: "tbl-wrap" }, el("table", { class: "tproy" },
@@ -1549,7 +1573,7 @@ window.startApp = () => {
           el("tr", null, el("th", { rowspan: "2", text: "Proyecto" }), el("th", { colspan: "3", class: "grp", text: "Equipo (coordinador e ingeniera)" }), el("th", { colspan: "3", class: "grp sep", text: "Profesionales" }), el("th", { colspan: "2", class: "grp sep", text: "Liquidación" })),
           el("tr", null, ...["A tiempo", "Cerradas", "Vencidas", "A tiempo", "Con fecha", "Vencidas", "Avance", "Req. cerrados"].map((t, i) => el("th", { class: "num" + (i === 3 || i === 6 ? " sep" : ""), text: t })))),
         el("tbody", null, filas.length ? filas : el("tr", null, el("td", { colspan: "9", class: "muted", text: "Sin actividad en el periodo." }))),
-        el("tfoot", null, el("tr", null, el("td", { text: "Consolidado" }), ...celdas(C.eq, C.pr, C.liqPct == null ? "—" : C.liqPct + "%", C.req))))));
+        el("tfoot", null, el("tr", null, el("td", { text: "Consolidado" }), ...celdas(C.eq, C.pr, C.liqPct == null ? "—" : C.liqPct + "% · " + C.liqPctC + "%", C.req))))));
   }
   function renderInformes() {
     const box = $("v-informes"); if (!S.isOwner) { box.replaceChildren(); return; }
@@ -1592,8 +1616,8 @@ window.startApp = () => {
           kpi("Vencidas abiertas", m.vencidas, fmtN, delta(m.vencidas, mp.vencidas, "down"), D.hist.map((h) => h.m && h.m.vencidas)),
           kpi("Horas en reuniones", m.horas, fmtH, delta(m.horas, mp.horas, "flat", " h"), D.hist.map((h) => h.m && h.m.horas), m.reuniones + (m.reuniones === 1 ? " reunión" : " reuniones"))),
         el("div", { class: "two" },
-          el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Avance de liquidación por contrato" }), el("span", { class: "muted", text: "ponderado por etapa" })),
-            el("div", null, D.liqs.sort((x, y) => y.pct - x.pct).map((o) => el("div", { class: "hbar", style: colorVars(o.c.color), title: o.c.nombre + ": avance ponderado " + o.pct + "% · " + o.st.done + " de " + o.st.total + " requisitos principales cerrados (" + o.st.pctC + "%)\n" + PESO_TXT }, el("span", { class: "tx", text: o.c.nombre }), el("span", { class: "track" }, el("span", { class: "fill", style: "width:" + o.pct + "%" })), el("span", { class: "n", text: o.pct + "%" })))),
+          el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Avance de liquidación por contrato" }), el("span", { class: "muted", text: "gestión · cerrado (barra sólida)" })),
+            el("div", null, D.liqs.sort((x, y) => y.pct - x.pct).map((o) => el("div", { class: "hbar", style: colorVars(o.c.color), title: o.c.nombre + ": gestión " + o.pct + "% · cerrado " + o.st.pctC + "% (" + o.st.done + " de " + o.st.total + " principales)\n" + PESO_TXT }, el("span", { class: "tx", text: o.c.nombre }), el("span", { class: "track" }, el("span", { class: "fill", style: "width:" + o.pct + "%" }), el("span", { class: "fill ce", style: "width:" + o.st.pctC + "%" })), el("span", { class: "n" }, o.pct + "% ", el("small", { text: "· " + o.st.pctC + "%" }))))),
             el("span", { class: "muted", text: totalReq ? "En el periodo se cerraron " + totalReq + (totalReq === 1 ? " requisito" : " requisitos") + ": " + Object.entries(D.req).map(([id, n]) => (S.contracts.find((c) => c.id === id) || { nombre: "otro" }).nombre + " " + n).join(", ") + "." : "En el periodo no se registraron requisitos cerrados." })),
           el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Requiere atención" }), el("span", { class: "muted", text: "a hoy · próximos 5 días hábiles" })),
             D.aten.length ? el("ul", { class: "att" }, D.aten.map((x) => el("li", null, el("span", { class: "chip " + x.cls }, el("i", { text: x.ic }), x.et), el("span", null, el("b", { text: x.txt }), el("br"), el("span", { class: "muted", text: x.det }))))) : el("p", { class: "muted", text: "Nada vencido ni con plazo en los próximos 5 días hábiles." }))),
@@ -1607,7 +1631,8 @@ window.startApp = () => {
           el("dt", { text: "Horas en reuniones" }), el("dd", { text: "Suma de la duración de las reuniones del periodo, propias y de Outlook (sin las ocultas). Los eventos de día completo no suman. En cada persona cuentan sus reuniones y las de ambos." }),
           el("dt", { text: "Equipo y profesionales" }), el("dd", { text: "Los indicadores del encabezado son del equipo (coordinador, ingeniera y tareas compartidas). Las tareas a nombre de «Profesionales» se miden aparte, por proyecto, y no suben ni bajan los del equipo." }),
           el("dt", { text: "Indicadores por proyecto" }), el("dd", { text: "Las mismas medidas, filtradas por el contrato de cada tarea. La fila «Consolidado» suma todos los proyectos, incluidas las tareas sin contrato." }),
-          el("dt", { text: "Avance de liquidación" }), el("dd", { text: "Promedio de los requisitos principales del contrato según su etapa, a hoy: " + PESO_TXT + "." }),
+          el("dt", { text: "Avance de liquidación: gestión" }), el("dd", { text: "Promedio de los requisitos principales del contrato según su etapa, a hoy: " + PESO_TXT + "." }),
+          el("dt", { text: "Avance de liquidación: cerrado" }), el("dd", { text: "Requisitos principales aprobados por IDU o por la ESP ÷ total de requisitos principales del contrato, a hoy. En la tabla se muestra «gestión · cerrado»." }),
           el("dt", { text: "Requisitos cerrados en el periodo" }), el("dd", { text: "Cambios a «Aprobado por IDU» o «Aprobado por la ESP» registrados en el historial dentro del periodo; cada requisito cuenta una vez." }),
           el("dt", { text: "Revisiones" }), el("dd", { text: "Aprobaciones, devoluciones y envíos a revisión registrados en el historial dentro del periodo." }))),
         el("div", { class: "foot" }, el("span", { text: "Generado desde la Agenda de liquidaciones · solo visible para el coordinador" }), el("span", { text: "Incluye todos los contratos y personas, sin importar los filtros de la barra lateral" })))));
@@ -1776,7 +1801,7 @@ window.startApp = () => {
     db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.base = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); mergeOl(); S.loaded = true; setStatus(); render(); sembrarRevision(); arrastrarTareas(); },
       (e) => { clearTimeout(timer); if (e && (e.code === "revoked" || e.code === "not_granted")) S.db = false; setStatus("No se pudo cargar la agenda."); render(); });
     db.collection("liq").limit(50).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liq = o; if (S.loaded) render(); }, () => {});
-    db.collection("liqmod").limit(1000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liqmod = o; if (S.loaded) render(); }, () => {});
+    db.collection("liqmod").limit(1000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.liqmod = o; S.liqmodOk = true; fotoAvance(); if (S.loaded) render(); }, () => {});
     if (S.isOwner) {
       const by = {}, subs = {};
       const merge = () => { S.hist = Object.values(by).flat().sort((a, b) => (b.t || "").localeCompare(a.t || "")); resolveNames(); if (S.view === "historial") renderHist(); };
@@ -1895,7 +1920,68 @@ window.startApp = () => {
     ps.forEach((x) => { if (cnt[x.s] != null) cnt[x.s]++; else cnt["EN PROCESO"]++; });
     const pend = its.filter((x) => (x.n === "p" || x.n === "e") && !entregado(x.s) && x.pl);
     const pts = EST.reduce((t, e) => t + cnt[e] * PESO[e], 0), done = cnt["APROBADO POR IDU"] + cnt["APROBADO POR LA ESP"];
-    return { total: ps.length, cnt, done, pts, pct: ps.length ? Math.round(pts / ps.length * 100) : 0, pctC: ps.length ? Math.round(done / ps.length * 100) : 0, late: pend.filter((x) => x.pl < t0).length, lateP: pend.filter((x) => x.pl < t0 && x.n === "p").length, lateE: pend.filter((x) => x.pl < t0 && x.n === "e").length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
+    return { total: ps.length, cnt, done, pts, pct: ps.length ? Math.round(pts / ps.length * 100) : 0, pctC: ps.length ? Math.round(done / ps.length * 100) : 0, pctE: ps.length ? Math.round(ps.filter((x) => entregado(x.s)).length / ps.length * 100) : 0, nPl: ps.filter((x) => x.pl).length, pctEP: ps.some((x) => x.pl) ? Math.round(ps.filter((x) => x.pl && entregado(x.s)).length / ps.filter((x) => x.pl).length * 100) : 0, radP: ps.filter((x) => entregado(x.s) && !cerrado(x.s)).length, late: pend.filter((x) => x.pl < t0).length, lateP: pend.filter((x) => x.pl < t0 && x.n === "p").length, lateE: pend.filter((x) => x.pl < t0 && x.n === "e").length, next: pend.filter((x) => x.pl >= t0).map((x) => x.pl).sort()[0] || "", has: !!(S.liq[cid] && S.liq[cid].items) };
+  }
+  // ---- Curva S: planeado (según plazos) contra real (foto diaria del avance) ----
+  // La foto de cada día se guarda en liqmod/<contrato>__curva: { serie: { "aaaa-mm-dd": [gestión, cerrado, entregado, entregado de los que tienen plazo] } }
+  const CURVA = "curva";
+  let fotoT = null;
+  function fotoAvance() { clearTimeout(fotoT); fotoT = setTimeout(fotoAhora, 2500); }
+  function fotoAhora() {
+    if (S.readOnly || !S.db || !S.liqmodOk) return;
+    const t = todayISO();
+    S.contracts.forEach((c) => {
+      if (c.archivado || !(S.liq[c.id] && S.liq[c.id].items)) return;
+      const st = liqStats(c.id); if (!st.total) return;
+      const k = c.id + "__" + CURVA, prev = S.liqmod[k] || {}, v = [st.pct, st.pctC, st.pctE, st.pctEP];
+      if (prev.serie && JSON.stringify(prev.serie[t]) === JSON.stringify(v)) return;
+      const serie = Object.assign({}, prev.serie || {}, { [t]: v });
+      S.liqmod[k] = { cid: c.id, row: CURVA, curva: true, serie, t: new Date().toISOString() };
+      S.db.doc("liqmod/" + k).set(S.liqmod[k]).catch(() => {});
+    });
+  }
+  function curvaS(c, items, st) {
+    const t0 = todayISO(), ps = items.filter((x) => x.n === "p" && !x.oculto), tot = ps.length;
+    const pls = ps.filter((x) => x.pl).map((x) => x.pl).sort();
+    const serie = Object.assign({}, (S.liqmod[c.id + "__" + CURVA] || {}).serie || {}); serie[t0] = [st.pct, st.pctC, st.pctE, st.pctEP];
+    const dias = Object.keys(serie).filter((d) => serie[d].length > 3).sort();
+    const nP = pls.length, plan = (d) => nP ? Math.round(pls.filter((p) => p <= d).length / nP * 100) : 0;
+    const box = el("details", { class: "lq-curva", open: true, style: colorVars(c.color) }, el("summary", { text: "Curva S: planeado contra real" }));
+    if (!tot) return box;
+    if (!nP) { box.append(el("p", { class: "muted", text: "Ningún requisito principal tiene plazo. Ponle plazo a cada principal y aquí verás cuánto debía ir entregado a cada fecha contra lo que va." })); return box; }
+    const pH = plan(t0), dif = st.pctEP - pH;
+    box.append(el("div", { class: "cv-k" },
+      el("div", null, el("b", { text: pH + "%" }), el("span", { text: "planeado a hoy: debían estar entregados" })),
+      el("div", null, el("b", { text: st.pctEP + "%" }), el("span", { text: "real a hoy: radicados o aprobados" })),
+      el("div", { class: dif < 0 ? "neg" : "pos" }, el("b", { text: (dif > 0 ? "+" : "") + dif + " pts" }), el("span", { text: dif < 0 ? "atraso contra el plan" : "al día o adelantado" })),
+      el("div", null, el("b", { text: nP + " de " + tot }), el("span", { text: "principales con plazo (los que entran a la curva)" }))));
+    // escala de fechas
+    const ini0 = [pls[0] || t0, dias[0]].sort()[0], fin0 = [pls[pls.length - 1] || t0, t0].sort().pop();
+    const addD = (d, n) => iso(addDays(parse(d), n));
+    const ini = addD(ini0, -7), fin = addD(fin0, 7), span = Math.max(1, daysBetween(ini, fin));
+    const Wd = 900, Hd = 300, L0 = 44, R0 = 886, T0 = 14, B0 = 262;
+    const X = (d) => L0 + (R0 - L0) * daysBetween(ini, d) / span, Y = (v) => B0 - (B0 - T0) * v / 100;
+    const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 " + Wd + " " + Hd); svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "Curva S de " + c.nombre);
+    const mk = (tag, a, txt) => { const n = document.createElementNS(NS, tag); for (const k in a) n.setAttribute(k, a[k]); if (txt != null) n.textContent = txt; svg.appendChild(n); return n; };
+    [0, 25, 50, 75, 100].forEach((v) => { mk("line", { x1: L0, x2: R0, y1: Y(v), y2: Y(v), stroke: "var(--line)", "stroke-width": 1 }); mk("text", { x: L0 - 6, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: "var(--muted)" }, v + "%"); });
+    const nT = Math.min(8, Math.max(2, Math.round(span / 14)));
+    for (let i = 0; i <= nT; i++) { const d = addD(ini, Math.round(span * i / nT)); mk("text", { x: X(d), y: B0 + 20, "text-anchor": i === 0 ? "start" : i === nT ? "end" : "middle", "font-size": 11, fill: "var(--muted)" }, span > 300 ? MESES[parse(d).getMonth()].slice(0, 3) + " " + String(parse(d).getFullYear()).slice(2) : fmtD(d)); }
+    mk("line", { x1: X(t0), x2: X(t0), y1: T0, y2: B0, stroke: "var(--muted)", "stroke-dasharray": "3 4" });
+    mk("text", { x: X(t0) + (X(t0) > R0 - 40 ? -5 : 5), y: T0 + 10, "text-anchor": X(t0) > R0 - 40 ? "end" : "start", "font-size": 11, fill: "var(--muted)" }, "Hoy");
+    // planeado: escalón en cada plazo
+    let dP = "M" + X(ini) + " " + Y(0), acc = 0;
+    [...new Set(pls)].forEach((p) => { dP += " L" + X(p) + " " + Y(Math.round(acc / nP * 100)); acc += pls.filter((q) => q === p).length; dP += " L" + X(p) + " " + Y(Math.round(acc / nP * 100)); });
+    dP += " L" + X(fin) + " " + Y(Math.round(acc / nP * 100));
+    mk("path", { d: dP, fill: "none", stroke: "var(--muted)", "stroke-width": 2, "stroke-dasharray": "6 5" });
+    const linea = (i, col, w) => { const pts = dias.map((d) => X(d).toFixed(1) + " " + Y(serie[d][i]).toFixed(1)); if (pts.length === 1) mk("circle", { cx: X(dias[0]), cy: Y(serie[dias[0]][i]), r: 4, fill: col }); else mk("path", { d: "M" + pts.join(" L"), fill: "none", stroke: col, "stroke-width": w }); };
+    linea(3, "var(--c)", 3);
+    mk("circle", { cx: X(t0), cy: Y(st.pctEP), r: 4.5, fill: "var(--c)" });
+    box.append(svg, el("div", { class: "cv-leg" },
+      el("span", null, el("i", { class: "pl" }), "Planeado: según el plazo de cada principal"),
+      el("span", null, el("i"), "Real: radicados o aprobados")),
+      el("small", { class: "muted", text: "Se mide sobre los principales que tienen plazo" + (nP < tot ? " (" + nP + " de " + tot + "; ponle plazo a los demás para que entren)" : "") + ". La línea real se arma con una foto diaria del avance desde el " + fmtD(dias[0]) + "." }));
+    return box;
   }
   const stackBar = (cnt) => el("div", { class: "sbar", title: EST.map((e) => EST_L[e] + ": " + cnt[e]).join("\n") }, EST.map((e) => cnt[e] ? el("span", { style: "flex:" + cnt[e] + ";background:" + EST_C[e] }) : null));
   function liqDue(from, to) {
@@ -2022,7 +2108,7 @@ window.startApp = () => {
     const st = liqStats(c.id);
     return el("button", { type: "button", class: "lq-card", style: colorVars(c.color), onclick: () => openLiq(c.id) },
       el("div", { class: "lq-ch" }, el("span", { class: "dot" }), el("b", { text: c.nombre }), el("span", { class: "cd", text: c.codigo }), c.tipo ? el("span", { class: "tag", text: TIPOS[c.tipo] || c.tipo }) : null),
-      st.has ? [el("div", { class: "lq-pct", title: "Avance ponderado por etapa\n" + PESO_TXT }, el("b", { text: st.total ? st.pct + "%" : "–" }), el("span", { text: "avance · " + st.done + " de " + st.total + " principales cerrados (" + st.pctC + "%)" })), stackBar(st.cnt),
+      st.has ? [el("div", { class: "lq-pct", title: "Avance de gestión (por etapa)\n" + PESO_TXT }, el("b", { text: st.total ? st.pct + "%" : "–" }), el("span", { text: "gestión · " + st.pctC + "% cerrado (" + st.done + " de " + st.total + " principales)" })), stackBar(st.cnt),
         el("div", { class: "lq-meta" }, st.late ? el("span", { class: "late", text: st.late + " con plazo vencido" }) : el("span", { text: "Sin plazos vencidos" }), st.next ? el("span", { text: "Próximo plazo: " + fmtD(st.next) }) : null)]
         : el("span", { class: "muted", text: "Aún no tiene lista de chequeo cargada." }),
       legalLine(c));
@@ -2072,10 +2158,15 @@ window.startApp = () => {
     }
     const items = annotate(liqItems(c.id)), st = liqStats(c.id);
     parts.push(el("div", { class: "lq-stats" },
-      el("div", { class: "lq-pct", style: colorVars(c.color), title: "Avance ponderado por etapa\n" + PESO_TXT }, el("b", { text: st.total ? st.pct + "%" : "–" }), el("span", { text: "avance ponderado por etapa · " + st.done + " de " + st.total + " principales cerrados (" + st.pctC + "%)" + (st.late ? " · " : "") }, st.late ? el("span", { class: "late", text: "plazo vencido: " + st.lateP + (st.lateP === 1 ? " principal" : " principales") + " y " + st.lateE + (st.lateE === 1 ? " entregable" : " entregables") }) : null)),
+      el("div", { class: "lq-duo", style: colorVars(c.color) },
+        el("div", { class: "lq-ind", style: "--ic:var(--c)", title: PESO_TXT }, el("span", { class: "lbl", text: "Avance de gestión" }), el("b", { text: st.total ? st.pct + "%" : "–" }), el("span", { class: "bar" }, el("i", { style: "width:" + st.pct + "%" })), el("small", { text: "Suma por etapa: radicado a interventoría 25%, a IDU 50%, a la ESP 60%, aprobado 100%." })),
+        el("div", { class: "lq-ind", style: "--ic:" + EST_C["APROBADO POR IDU"] }, el("span", { class: "lbl", text: "Avance cerrado" }), el("b", { text: st.total ? st.pctC + "%" : "–" }), el("span", { class: "bar" }, el("i", { style: "width:" + st.pctC + "%" })), el("small", { text: st.done + " de " + st.total + " requisitos principales aprobados por IDU o por la ESP." }))),
+      (st.radP || st.late) ? el("div", { class: "lq-gap" }, st.radP ? el("span", null, el("b", { text: (st.pct - st.pctC) + " puntos radicados esperan aprobación" }), " (" + st.radP + (st.radP === 1 ? " principal" : " principales") + "): cuando los aprueben, el avance cerrado los alcanza.") : null,
+        st.late ? el("span", { class: "late", text: (st.radP ? " · " : "") + "Plazo vencido: " + st.lateP + (st.lateP === 1 ? " principal" : " principales") + " y " + st.lateE + (st.lateE === 1 ? " entregable" : " entregables") + "." }) : null) : null,
       stackBar(st.cnt),
       el("div", { class: "est-legend" }, EST.map((e) => el("span", null, el("i", { style: "background:" + EST_C[e] }), EST_L[e] + " ", el("b", { text: String(st.cnt[e]) })))),
-      el("span", { class: "muted", text: "Requisitos principales en cada estado. El avance suma por etapa: " + PESO_TXT + "." })));
+      el("span", { class: "muted", text: "Requisitos principales en cada estado." })));
+    parts.push(curvaS(c, items, st));
     const imp = items.filter((x) => x.n === "x");
     if (imp.length) parts.push(el("div", { class: "lq-imp" }, el("b", { text: "Importantes" }), imp.map((x) => el("span", { text: x.q + (x.o ? " — " + x.o : "") }))));
     const kv = (rows) => el("div", { class: "kv" }, rows.flatMap((r) => r.length < 2 ? [el("span", { class: "hd", text: String(r[0]) })] : [el("span", { text: String(r[0]) }), el("span", { text: money(r[1]) })]));
@@ -2516,7 +2607,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 13/11 18:02";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 13/11 18:12";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
