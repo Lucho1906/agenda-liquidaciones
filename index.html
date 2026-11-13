@@ -288,14 +288,24 @@ dialog { overflow: auto; }
 .inf2 .chip.cr { border-color: var(--late); background: color-mix(in srgb, var(--late) 14%, transparent); } .inf2 .chip.cr i { color: var(--late); }
 .inf2 .chip.at { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); } .inf2 .chip.at i { color: var(--warn); }
 .inf2 .chip.ok { border-color: var(--done); background: color-mix(in srgb, var(--done) 14%, transparent); } .inf2 .chip.ok i { color: var(--done); }
-.inf2 .team { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.inf2 .team { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.inf2 .tbl-wrap { overflow-x: auto; }
+.inf2 .tproy { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 640px; }
+.inf2 .tproy th, .inf2 .tproy td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.inf2 .tproy th { font-size: 11px; color: var(--muted); font-weight: 600; }
+.inf2 .tproy th.grp { text-align: center; color: var(--ink); }
+.inf2 .tproy .num { text-align: right; font-variant-numeric: tabular-nums; }
+.inf2 .tproy .sep { border-left: 1px solid var(--line); }
+.inf2 .tproy .bad { color: var(--late); font-weight: 700; }
+.inf2 .tproy tfoot td { font-weight: 700; border-top: 2px solid var(--line); border-bottom: 0; }
+.inf2 .tproy .pdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 6px; }
 @media (max-width: 760px) { .inf2 .team { grid-template-columns: minmax(0, 1fr); } }
 .inf2 .person { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .inf2 .person-h { display: flex; align-items: center; gap: 10px; }
 .inf2 .av { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #0f1419; background: var(--c); flex: none; }
 .inf2 .stack { display: flex; height: 14px; border-radius: 4px; overflow: hidden; gap: 2px; }
 .inf2 .st-ok { background: var(--p1); } .inf2 .st-late { background: var(--p2); } .inf2 .st-open { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
-.inf2 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); }
+.inf2 .legend { display: flex; flex-direction: row; background: none; padding: 0; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); }
 .inf2 .sw2 { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
 .inf2 .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .inf2 .fact b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
@@ -1431,9 +1441,11 @@ window.startApp = () => {
   function tareasConFecha(a, b) { return tareasBase().flatMap((x) => isSeries(x) ? occurrences(x, a, b).map((d) => inst(x, d)) : (fechaOriginal(x) && fechaOriginal(x) >= a && fechaOriginal(x) <= b ? [x] : [])); } // las arrastradas cuentan en su fecha original
   // Fecha en que la tarea quedó entregada: cierre, o envío a revisión si aún está en revisión
   const entrega = (x) => x.estado === "hecha" ? dia(x.completada) : x.estado === "revision" ? dia(x.enviada) : "";
-  function metricas(a, b, persona) {
+  // persona: "p1", "p2", "prof", "equipo" (coordinador + ingeniera, sin profesionales) o vacío (todo); cid: contrato ("" = sin contrato)
+  function metricas(a, b, persona, cid) {
     const t0 = todayISO(), corte = b < t0 ? b : t0;
-    const filtro = (x) => !persona || x.resp === persona || x.resp === "ambos"; // las compartidas cuentan para los dos
+    const dePersona = (x) => persona === "equipo" ? x.resp !== "prof" : !persona || x.resp === persona || (x.resp === "ambos" && persona !== "prof"); // las compartidas cuentan para los dos
+    const filtro = (x) => dePersona(x) && (cid == null || (x.contrato || "") === cid);
     const conFecha = tareasConFecha(a, b).filter(filtro);
     const debidas = conFecha.filter((x) => fechaOriginal(x) <= corte);
     const aTiempo = debidas.filter((x) => { const e = entrega(x); return e && e <= fechaOriginal(x); }).length;
@@ -1453,7 +1465,7 @@ window.startApp = () => {
       const e = entrega(x); if (!e || e > corte) vencidas++;
     });
     const abiertas = conFecha.length - conFecha.filter((x) => entrega(x)).length;
-    const reus = instancesIn(a, b).filter((x) => x.tipo === "reunion" && x.inicio && (!persona || x.resp === persona || x.resp === "ambos"));
+    const reus = instancesIn(a, b).filter((x) => x.tipo === "reunion" && x.inicio && filtro(x));
     const horas = reus.reduce((h, x) => h + Math.max(0, (toMin(x.fin) || toMin(x.inicio) + 60) - toMin(x.inicio)) / 60, 0);
     return { conFecha: conFecha.length, debidas: debidas.length, aTiempo, tarde, abiertas, cerradas, vencidas, cumplimiento: debidas.length ? Math.round(aTiempo / debidas.length * 100) : null, reuniones: reus.length, horas: Math.round(horas * 10) / 10, reus };
   }
@@ -1505,12 +1517,39 @@ window.startApp = () => {
   function datosInforme0() {
     const R = rango(INF.modo, INF.ref), P = rango(INF.modo, prevRef(INF.modo, INF.ref, 1));
     const N = INF.modo === "mes" ? 6 : 8;
-    const hist = [...Array(N)].map((_, k) => { const r = rango(INF.modo, prevRef(INF.modo, INF.ref, N - 1 - k)); return { r, m: r.a > todayISO() ? null : metricas(r.a, r.b) }; });
-    const m = metricas(R.a, R.b), mp = metricas(P.a, P.b);
-    const pers = ["p1", "p2"].map((k) => ({ k, m: metricas(R.a, R.b, k), mp: metricas(P.a, P.b, k) }));
+    const hist = [...Array(N)].map((_, k) => { const r = rango(INF.modo, prevRef(INF.modo, INF.ref, N - 1 - k)); return { r, m: r.a > todayISO() ? null : metricas(r.a, r.b, "equipo") }; });
+    // Indicadores del equipo (coordinador e ingeniera); las tareas de profesionales van aparte y no los afectan
+    const m = metricas(R.a, R.b, "equipo"), mp = metricas(P.a, P.b, "equipo");
+    const pers = ["p1", "p2", "prof"].map((k) => ({ k, m: metricas(R.a, R.b, k), mp: metricas(P.a, P.b, k) }));
     const hs = histEn(R.a, R.b);
     const liqs = S.contracts.filter((c) => !c.archivado && c.fase === "liquidacion" && S.liq[c.id]).map((c) => { const st = liqStats(c.id); return { c, st, pct: st.total ? Math.round(st.done / st.total * 100) : 0 }; });
-    return { R, P, hist, m, mp, pers, liqs, req: reqCerrados(R.a, R.b), aprob: hs.filter((h) => h.accion === "aprobar").length, devol: hs.filter((h) => h.accion === "devolver").length, enviadas: hs.filter((h) => h.accion === "revision").length, aten: atencion() };
+    const req = reqCerrados(R.a, R.b);
+    // Por proyecto y consolidado
+    const activo = (o) => o.conFecha + o.cerradas + o.vencidas > 0;
+    const proy = S.contracts.filter((c) => !c.archivado).map((c) => ({ c, cid: c.id }))
+      .concat([{ c: null, cid: "" }])
+      .map((o) => Object.assign(o, { eq: metricas(R.a, R.b, "equipo", o.cid), pr: metricas(R.a, R.b, "prof", o.cid), liq: liqs.find((l) => o.c && l.c.id === o.c.id) || null, req: req[o.cid] || 0 }))
+      .filter((o) => activo(o.eq) || activo(o.pr) || o.liq || o.req);
+    const totDone = liqs.reduce((t, l) => t + l.st.done, 0), totP = liqs.reduce((t, l) => t + l.st.total, 0);
+    const cons = { eq: m, pr: pers[2].m, liqPct: totP ? Math.round(totDone / totP * 100) : null, liqDone: totDone, liqTotal: totP, req: Object.values(req).reduce((t, n) => t + n, 0) };
+    return { R, P, hist, m, mp, pers, liqs, proy, cons, req, aprob: hs.filter((h) => h.accion === "aprobar").length, devol: hs.filter((h) => h.accion === "devolver").length, enviadas: hs.filter((h) => h.accion === "revision").length, aten: atencion() };
+  }
+  function tablaProyectos(D) {
+    const pct = (v) => v == null ? "—" : v + "%";
+    const celdas = (eq, pr, liqTxt, req, cls) => [
+      el("td", { class: "num", text: pct(eq.cumplimiento) }), el("td", { class: "num", text: String(eq.cerradas) }), el("td", { class: "num" + (eq.vencidas ? " bad" : ""), text: String(eq.vencidas) }),
+      el("td", { class: "num sep", text: pct(pr.cumplimiento) }), el("td", { class: "num", text: String(pr.conFecha) }), el("td", { class: "num" + (pr.vencidas ? " bad" : ""), text: String(pr.vencidas) }),
+      el("td", { class: "num sep", text: liqTxt }), el("td", { class: "num", text: String(req) })];
+    const filas = D.proy.map((o) => el("tr", null, el("td", null, o.c ? el("span", { class: "pdot", style: "--c:" + o.c.color }) : null, o.c ? o.c.nombre : "Sin contrato", o.c ? el("small", { class: "muted", text: " " + o.c.codigo.replace(/^IDU-/, "") }) : null),
+      ...celdas(o.eq, o.pr, o.liq ? o.liq.pct + "%" : "—", o.req)));
+    const C = D.cons;
+    return el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Indicadores por proyecto" }), el("span", { class: "muted", text: "equipo y profesionales por separado · consolidado al final" })),
+      el("div", { class: "tbl-wrap" }, el("table", { class: "tproy" },
+        el("thead", null,
+          el("tr", null, el("th", { rowspan: "2", text: "Proyecto" }), el("th", { colspan: "3", class: "grp", text: "Equipo (coordinador e ingeniera)" }), el("th", { colspan: "3", class: "grp sep", text: "Profesionales" }), el("th", { colspan: "2", class: "grp sep", text: "Liquidación" })),
+          el("tr", null, ...["A tiempo", "Cerradas", "Vencidas", "A tiempo", "Con fecha", "Vencidas", "Avance", "Req. cerrados"].map((t, i) => el("th", { class: "num" + (i === 3 || i === 6 ? " sep" : ""), text: t })))),
+        el("tbody", null, filas.length ? filas : el("tr", null, el("td", { colspan: "9", class: "muted", text: "Sin actividad en el periodo." }))),
+        el("tfoot", null, el("tr", null, el("td", { text: "Consolidado" }), ...celdas(C.eq, C.pr, C.liqPct == null ? "—" : C.liqPct + "%", C.req))))));
   }
   function renderInformes() {
     const box = $("v-informes"); if (!S.isOwner) { box.replaceChildren(); return; }
@@ -1526,15 +1565,16 @@ window.startApp = () => {
     const frases = [];
     if (m.cumplimiento != null) frases.push("Cumplimiento a tiempo de " + m.cumplimiento + "%" + (mp.cumplimiento != null && m.cumplimiento !== mp.cumplimiento ? (m.cumplimiento > mp.cumplimiento ? ", " + (m.cumplimiento - mp.cumplimiento) + " puntos por encima" : ", " + (mp.cumplimiento - m.cumplimiento) + " puntos por debajo") + " del periodo anterior" : "") + ".");
     frases.push((m.cerradas === 1 ? "Se cerró 1 tarea" : "Se cerraron " + m.cerradas + " tareas") + " y " + (totalReq === 1 ? "1 requisito" : totalReq + " requisitos") + " de liquidación; " + (m.vencidas === 1 ? "queda 1 tarea vencida abierta." : "quedan " + m.vencidas + " tareas vencidas abiertas."));
+    const pr = D.cons.pr; if (pr.conFecha || pr.vencidas) frases.push("Profesionales: " + (pr.cumplimiento == null ? "sin tareas vencidas en el periodo" : pr.cumplimiento + "% a tiempo") + (pr.vencidas ? " y " + (pr.vencidas === 1 ? "1 tarea vencida abierta" : pr.vencidas + " tareas vencidas abiertas") : "") + " (no cuenta en los indicadores del equipo).");
     const urg = D.aten.find((x) => x.cls === "cr"); if (urg) frases.push("Lo urgente: " + urg.txt + " (" + urg.det + ").");
     const persona = (p) => { const mm = p.m, tot = mm.aTiempo + mm.tarde + mm.abiertas;
       return el("div", { class: "person" },
-        el("div", { class: "person-h" }, el("span", { class: "av", style: "--c:" + (p.k === "p1" ? "var(--p1)" : "var(--p2)") }, badgeText(p.k)), el("div", null, el("b", { text: pname(p.k) }), el("div", { class: "muted", text: mm.conFecha + (mm.conFecha === 1 ? " tarea" : " tareas") + " con fecha en el periodo" }))),
+        el("div", { class: "person-h" }, el("span", { class: "av", style: "--c:" + (p.k === "p1" ? "var(--p1)" : p.k === "p2" ? "var(--p2)" : "#a78bfa") }, badgeText(p.k)), el("div", null, el("b", { text: pname(p.k) + (p.k === "prof" ? " · responden ellos" : "") }), el("div", { class: "muted", text: mm.conFecha + (mm.conFecha === 1 ? " tarea" : " tareas") + " con fecha en el periodo" + (p.k === "prof" ? " · no afecta los indicadores del equipo" : "") }))),
         el("div", { title: mm.aTiempo + " a tiempo, " + mm.tarde + " tarde, " + mm.abiertas + " abiertas" }, el("div", { class: "stack" }, tot ? [el("span", { class: "st-ok", style: "flex:" + mm.aTiempo }), el("span", { class: "st-late", style: "flex:" + mm.tarde }), el("span", { class: "st-open", style: "flex:" + mm.abiertas })] : el("span", { class: "st-open", style: "flex:1" })),
           el("div", { class: "muted", style: "margin-top:4px", text: mm.aTiempo + " a tiempo · " + mm.tarde + " tarde · " + mm.abiertas + " abiertas" })),
         el("div", { class: "facts" },
           el("div", { class: "fact" }, el("b", { text: mm.cumplimiento == null ? "—" : mm.cumplimiento + "%" }), el("span", null, "cumplimiento ", mm.cumplimiento != null && p.mp.cumplimiento != null ? el("span", { class: mm.cumplimiento >= p.mp.cumplimiento ? "up" : "down", text: (mm.cumplimiento >= p.mp.cumplimiento ? "▲ " : "▼ ") + Math.abs(mm.cumplimiento - p.mp.cumplimiento) }) : null)),
-          p.k === "p1" ? el("div", { class: "fact" }, el("b", { text: String(D.aprob) }), el("span", { text: "revisiones aprobadas" })) : el("div", { class: "fact" }, el("b", { text: String(D.devol) }), el("span", { text: "devueltas para corregir · " + D.enviadas + " enviadas" })),
+          p.k === "p1" ? el("div", { class: "fact" }, el("b", { text: String(D.aprob) }), el("span", { text: "revisiones aprobadas" })) : p.k === "p2" ? el("div", { class: "fact" }, el("b", { text: String(D.devol) }), el("span", { text: "devueltas para corregir · " + D.enviadas + " enviadas" })) : el("div", { class: "fact" }, el("b", { class: mm.vencidas ? "down" : "", text: String(mm.vencidas) }), el("span", { text: "vencidas abiertas" })),
           el("div", { class: "fact" }, el("b", { text: fmtH(mm.horas) }), el("span", { text: "en " + mm.reuniones + (mm.reuniones === 1 ? " reunión" : " reuniones") }))));
     };
     const mover = (d) => { INF.ref = INF.modo === "mes" ? new Date(INF.ref.getFullYear(), INF.ref.getMonth() + d, 1) : addDays(INF.ref, 7 * d); renderInformes(); };
@@ -1547,7 +1587,7 @@ window.startApp = () => {
         el("div", { class: "rep-head" }, el("div", null, el("span", { class: "lbl", text: "Coordinación de liquidaciones · Cimelec" }), el("h3", { text: INF.modo === "mes" ? "Informe mensual" : "Informe semanal" })), el("div", { class: "meta" }, el("b", { text: D.R.nombre }), el("br"), "Generado el " + fmtDL(todayISO()))),
         el("p", { class: "callout", text: frases.join(" ") }),
         el("div", { class: "k2" },
-          kpi("Cumplimiento a tiempo", m.cumplimiento, fmtPct, delta(m.cumplimiento, mp.cumplimiento, "up", " pts"), D.hist.map((h) => h.m && h.m.cumplimiento), m.debidas + " con fecha vencida"),
+          kpi("Cumplimiento a tiempo · equipo", m.cumplimiento, fmtPct, delta(m.cumplimiento, mp.cumplimiento, "up", " pts"), D.hist.map((h) => h.m && h.m.cumplimiento), m.debidas + " con fecha vencida"),
           kpi("Tareas cerradas", m.cerradas, fmtN, delta(m.cerradas, mp.cerradas, "up"), D.hist.map((h) => h.m && h.m.cerradas)),
           kpi("Vencidas abiertas", m.vencidas, fmtN, delta(m.vencidas, mp.vencidas, "down"), D.hist.map((h) => h.m && h.m.vencidas)),
           kpi("Horas en reuniones", m.horas, fmtH, delta(m.horas, mp.horas, "flat", " h"), D.hist.map((h) => h.m && h.m.horas), m.reuniones + (m.reuniones === 1 ? " reunión" : " reuniones"))),
@@ -1557,6 +1597,7 @@ window.startApp = () => {
             el("span", { class: "muted", text: totalReq ? "En el periodo se cerraron " + totalReq + (totalReq === 1 ? " requisito" : " requisitos") + ": " + Object.entries(D.req).map(([id, n]) => (S.contracts.find((c) => c.id === id) || { nombre: "otro" }).nombre + " " + n).join(", ") + "." : "En el periodo no se registraron requisitos cerrados." })),
           el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Requiere atención" }), el("span", { class: "muted", text: "a hoy · próximos 5 días hábiles" })),
             D.aten.length ? el("ul", { class: "att" }, D.aten.map((x) => el("li", null, el("span", { class: "chip " + x.cls }, el("i", { text: x.ic }), x.et), el("span", null, el("b", { text: x.txt }), el("br"), el("span", { class: "muted", text: x.det }))))) : el("p", { class: "muted", text: "Nada vencido ni con plazo en los próximos 5 días hábiles." }))),
+        tablaProyectos(D),
         el("div", { class: "sec" }, el("div", { class: "sec-h" }, el("h4", { text: "Desempeño del equipo" }), el("div", { class: "legend" }, el("span", null, el("span", { class: "sw2 st-ok" }), "A tiempo"), el("span", null, el("span", { class: "sw2 st-late" }), "Tarde"), el("span", null, el("span", { class: "sw2 st-open" }), "Abiertas"))),
           el("div", { class: "team" }, D.pers.map(persona))),
         el("details", { class: "defs" }, el("summary", { text: "Cómo se calcula cada indicador" }), el("dl", null,
@@ -1564,6 +1605,8 @@ window.startApp = () => {
           el("dt", { text: "Tareas cerradas" }), el("dd", { text: "Tareas cerradas o aprobadas dentro del periodo, sin importar su fecha límite." }),
           el("dt", { text: "Vencidas abiertas" }), el("dd", { text: "Al cierre del periodo (o hoy, si está en curso): tareas con fecha límite anterior que no estaban cerradas ni enviadas a revisión. Para repetitivas, solo las fechas de los 14 días anteriores." }),
           el("dt", { text: "Horas en reuniones" }), el("dd", { text: "Suma de la duración de las reuniones del periodo, propias y de Outlook (sin las ocultas). Los eventos de día completo no suman. En cada persona cuentan sus reuniones y las de ambos." }),
+          el("dt", { text: "Equipo y profesionales" }), el("dd", { text: "Los indicadores del encabezado son del equipo (coordinador, ingeniera y tareas compartidas). Las tareas a nombre de «Profesionales» se miden aparte, por proyecto, y no suben ni bajan los del equipo." }),
+          el("dt", { text: "Indicadores por proyecto" }), el("dd", { text: "Las mismas medidas, filtradas por el contrato de cada tarea. La fila «Consolidado» suma todos los proyectos, incluidas las tareas sin contrato." }),
           el("dt", { text: "Avance de liquidación" }), el("dd", { text: "Requisitos principales aprobados por IDU o por la ESP ÷ total de requisitos principales del contrato, a hoy." }),
           el("dt", { text: "Requisitos cerrados en el periodo" }), el("dd", { text: "Cambios a «Aprobado por IDU» o «Aprobado por la ESP» registrados en el historial dentro del periodo; cada requisito cuenta una vez." }),
           el("dt", { text: "Revisiones" }), el("dd", { text: "Aprobaciones, devoluciones y envíos a revisión registrados en el historial dentro del periodo." }))),
@@ -1576,6 +1619,10 @@ window.startApp = () => {
       [], ["Tendencia", ...D.hist.map((h) => h.r.corto)], ["Cumplimiento a tiempo (%)", ...D.hist.map((h) => h.m ? h.m.cumplimiento ?? "" : "")], ["Tareas cerradas", ...D.hist.map((h) => h.m ? h.m.cerradas : "")], ["Vencidas abiertas", ...D.hist.map((h) => h.m ? h.m.vencidas : "")], ["Horas en reuniones", ...D.hist.map((h) => h.m ? r(h.m.horas) : "")],
       [], ["Persona", "Con fecha", "A tiempo", "Tarde", "Abiertas", "Cumplimiento (%)", "Cerradas en el periodo", "Reuniones", "Horas"]];
     D.pers.forEach((p) => rows.push([pname(p.k), p.m.conFecha, p.m.aTiempo, p.m.tarde, p.m.abiertas, p.m.cumplimiento ?? "", p.m.cerradas, p.m.reuniones, r(p.m.horas)]));
+    rows.push([], ["Proyecto", "Equipo: a tiempo (%)", "Equipo: cerradas", "Equipo: vencidas", "Profesionales: a tiempo (%)", "Profesionales: con fecha", "Profesionales: vencidas", "Avance liquidación (%)", "Requisitos cerrados en el periodo"]);
+    const fila = (n, eq, pr, liq, req) => [n, eq.cumplimiento ?? "", eq.cerradas, eq.vencidas, pr.cumplimiento ?? "", pr.conFecha, pr.vencidas, liq ?? "", req];
+    D.proy.forEach((o) => rows.push(fila(o.c ? cLabel(o.c) : "Sin contrato", o.eq, o.pr, o.liq ? o.liq.pct : "", o.req)));
+    rows.push(fila("Consolidado", D.cons.eq, D.cons.pr, D.cons.liqPct, D.cons.req));
     rows.push([], ["Revisiones aprobadas", D.aprob], ["Devueltas para corregir", D.devol], ["Enviadas a revisión", D.enviadas], [], ["Contrato", "Avance (%)", "Principales cerrados", "Total principales", "Cerrados en el periodo"]);
     D.liqs.forEach((o) => rows.push([cLabel(o.c), o.pct, o.st.done, o.st.total, D.req[o.c.id] || 0]));
     rows.push([], ["Requiere atención", "Detalle"]); D.aten.forEach((x) => rows.push([x.et + " · " + x.txt, x.det]));
@@ -2465,7 +2512,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 12/11 15:05";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 13/11 11:28";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
