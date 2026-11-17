@@ -530,7 +530,12 @@ details.lq-dt summary { cursor: pointer; font-weight: 600; font-size: 13px; }
 .kv .hd { grid-column: 1 / -1; color: var(--ink) !important; font-weight: 600; margin-top: 6px; }
 .lq-list { display: flex; flex-direction: column; gap: 1px; background: var(--side); border-radius: 12px; padding: 6px 8px 10px; }
 .lq-et { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 600; padding: 12px 6px 4px; }
-.lq-g { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; padding: 12px 6px 6px; border-top: 1px solid var(--line); margin-top: 4px; }
+.lq-gr { display: flex; align-items: center; gap: 8px; }
+.lq-gpl-b { padding: 4px 9px; font-size: 11.5px; font-weight: 600; }
+.lq-gpl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; background: var(--card); border-radius: 10px; padding: 10px 12px; margin: 4px 0 8px; font-size: 13px; }
+.lq-gpl .chk { display: inline-flex; align-items: center; gap: 6px; }
+.lq-gpl input[type=date] { padding: 5px 8px; }
+.lq-g { justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; padding: 12px 6px 6px; border-top: 1px solid var(--line); margin-top: 4px; }
 .lq-r { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 7px 6px; border-radius: 8px; }
 .lq-r:hover { background: var(--card); }
 .lq-r.p .lq-q { font-weight: 600; }
@@ -1940,6 +1945,27 @@ window.startApp = () => {
       S.db.doc("liqmod/" + k).set(S.liqmod[k]).catch(() => {});
     });
   }
+  // Cambio masivo: el mismo plazo para todos los requisitos abiertos de un grupo
+  function plazoGrupo(c, g, items) {
+    const abiertos = items.filter((y) => y.g === g.r && (y.n === "p" || y.n === "e") && !y.oculto && !cerrado(y.s));
+    const ps = abiertos.filter((y) => y.n === "p"), es = abiertos.filter((y) => y.n === "e");
+    const fecha = el("input", { type: "date", id: "gpl-fecha", value: L.gplF || "", "aria-label": "Plazo para el grupo " + g.q, oninput: (e) => (L.gplF = e.target.value) });
+    const conE = el("input", { type: "checkbox", id: "gpl-ent", checked: !!L.gplE, onchange: (e) => (L.gplE = e.target.checked) });
+    const btn = el("button", { type: "button", class: "btn primary" });
+    const lbl = () => { btn.textContent = "Aplicar a " + ps.length + (ps.length === 1 ? " principal" : " principales") + (conE.checked ? " y " + es.length + (es.length === 1 ? " entregable" : " entregables") : ""); };
+    conE.addEventListener("change", lbl); lbl();
+    btn.onclick = async () => {
+      if (!fecha.value) { toast("Elige la fecha del plazo"); fecha.focus(); return; }
+      const lista = conE.checked ? abiertos : ps; btn.disabled = true; btn.textContent = "Guardando…";
+      L.gpl = null; L.gplF = ""; L.gplE = false; toast("Guardando plazos…");
+      for (const y of lista) await saveLiq(c, y, { pl: fecha.value }, true);
+      toast("Plazo " + fmtD(fecha.value) + " puesto a " + lista.length + (lista.length === 1 ? " requisito" : " requisitos") + " de «" + g.q + "»"); renderLiq();
+    };
+    return el("div", { class: "lq-gpl" },
+      el("span", { text: ps.length || es.length ? "Mismo plazo para los requisitos abiertos de «" + g.q + "» (los aprobados no se tocan):" : "Este grupo no tiene requisitos abiertos." }),
+      ps.length || es.length ? [fecha, el("label", { class: "chk" }, conE, " También a sus entregables (" + es.length + ")"), btn] : null,
+      el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.gpl = null; renderLiq(); } }));
+  }
   function curvaS(c, items, st) {
     const t0 = todayISO(), ps = items.filter((x) => x.n === "p" && !x.oculto), tot = ps.length;
     const pls = ps.filter((x) => x.pl).map((x) => x.pl).sort();
@@ -1992,7 +2018,7 @@ window.startApp = () => {
     return out;
   }
   function liqLate() { const t0 = todayISO(); return S.contracts.filter((c) => !S.hideC[c.id] && S.liq[c.id]).map((c) => ({ c, n: liqItems(c.id).filter((x) => !x.oculto && !entregado(x.s) && x.pl && x.pl < t0 && (x.n === "p" || x.n === "e")).length })).filter((o) => o.n); }
-  function openLiq(cid, plazo) { L.sel = cid; L.plazo = plazo || ""; L.area = ""; L.est = ""; L.q = ""; L.vista = plazo ? "pend" : ""; L.edit = null; L.open = {}; L.expandAll = !!plazo; setView("liq"); window.scrollTo(0, 0); }
+  function openLiq(cid, plazo) { L.gpl = null; L.sel = cid; L.plazo = plazo || ""; L.area = ""; L.est = ""; L.q = ""; L.vista = plazo ? "pend" : ""; L.edit = null; L.open = {}; L.expandAll = !!plazo; setView("liq"); window.scrollTo(0, 0); }
   function liqChip(x) {
     return el("button", { type: "button", class: "chip" + (x.fecha < todayISO() ? " late" : ""), style: varsFor(x), title: "Plazos de liquidación\n" + x.titulo, onclick: (e) => { e.stopPropagation(); openLiq(x.contrato, x.fecha); } },
       el("span", { class: "lq", text: "§" }), el("span", { class: "tx", style: "flex:1", text: x.titulo }));
@@ -2218,7 +2244,7 @@ window.startApp = () => {
     }
     items.forEach((x) => {
       if (x.n === "x") return;
-      if (x.n === "g") { if (!filtering || grpHas(x.r)) { if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } list.append(el("div", { class: "lq-g" }, el("span", { text: x.q }), estSel(c, x))); } return; }
+      if (x.n === "g") { if (!filtering || grpHas(x.r)) { if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } list.append(el("div", { class: "lq-g" }, el("span", { text: x.q }), el("span", { class: "lq-gr" }, S.readOnly ? null : el("button", { type: "button", class: "btn lq-gpl-b" + (L.gpl === x.r ? " primary" : ""), text: "Plazo a todo el grupo", title: "Poner el mismo plazo a todos los requisitos de este grupo", onclick: () => { L.gpl = L.gpl === x.r ? null : x.r; renderLiq(); } }), estSel(c, x)))); if (L.gpl === x.r) list.append(plazoGrupo(c, x, items)); } return; }
       if (x.n === "p") { if (!visP.has(x.r)) return; if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } shown++; list.append(liqRow(c, x, kids[x.r] || [], filtering, filtering && ctxP.has(x.r))); if (L.edit === x.r) list.append(liqEditor(c, x)); if (L.addP === x.r) list.append(addRow(c, x, x.r, "p")); return; }
       if (x.n === "e") { const open = isOpen(x.p); if (!x.p) { if (!visE.has(x.r)) return; } else if (!open || !visE.has(x.r) || !visP.has(x.p)) return; shown++; list.append(liqRow(c, x, null, filtering)); if (L.edit === x.r) list.append(liqEditor(c, x));
         const sib = kids[x.p] || []; if (L.add === x.p && sib[sib.length - 1] === x) list.append(addRow(c, items.find((y) => y.r === x.p), x.r)); }
@@ -2607,7 +2633,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 13/11 18:12";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 17/11 12:10";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
