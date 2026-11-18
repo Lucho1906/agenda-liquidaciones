@@ -950,7 +950,7 @@ window.startApp = () => {
     for (const x of xs) {
       arrastradas[x.id] = t0;
       const atrasos = (x.atrasos || []).concat([{ de: x.fecha, a: t0, t: now }]);
-      try { await S.db.doc("agenda/" + x.id).update({ fecha: t0, atrasos, actualizada: now }); log("editar", x, "No se cumplió el " + fmtD(x.fecha) + "; pasó automáticamente al " + fmtD(t0)); } catch (e) { delete arrastradas[x.id]; }
+      try { await S.db.doc("agenda/" + x.id).update({ fecha: t0, atrasos, actualizada: now }); log("auto", x, "No se cumplió el " + fmtD(x.fecha) + "; pasó automáticamente al " + fmtD(t0)); } catch (e) { delete arrastradas[x.id]; }
     }
   }
   // Reuniones traídas de Outlook (solo lectura; aquí solo se asigna responsable y contrato)
@@ -1210,7 +1210,7 @@ window.startApp = () => {
       el("span", { class: "dt" + (late ? " late" : ""), text: x.fecha ? fmtD(x.fecha) : "sin fecha" }));
   }
 
-  const ICON = { crear: ["+", "var(--p2)"], hecha: ["✓", "var(--done)"], reabrir: ["↺", "var(--muted)"], avance: ["✎", "var(--p1)"], editar: ["✎", "var(--muted)"], eliminar: ["✕", "var(--late)"], reunion: ["◷", "var(--both)"], mover: ["↔", "var(--accent)"], quitar: ["✕", "var(--muted)"], liq: ["§", "#34d399"], contrato: ["⚙", "var(--warn)"], revision: ["⧗", "var(--warn)"], aprobar: ["✓", "var(--done)"], devolver: ["↩", "var(--late)"] };
+  const ICON = { auto: ["↷", "var(--p2)"], crear: ["+", "var(--p2)"], hecha: ["✓", "var(--done)"], reabrir: ["↺", "var(--muted)"], avance: ["✎", "var(--p1)"], editar: ["✎", "var(--muted)"], eliminar: ["✕", "var(--late)"], reunion: ["◷", "var(--both)"], mover: ["↔", "var(--accent)"], quitar: ["✕", "var(--muted)"], liq: ["§", "#34d399"], contrato: ["⚙", "var(--warn)"], revision: ["⧗", "var(--warn)"], aprobar: ["✓", "var(--done)"], devolver: ["↩", "var(--late)"] };
   function renderHist() {
     const box = $("v-historial"); const t0 = todayISO(), t7 = iso(addDays(new Date(), 7));
     const open = pendingTasks().sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
@@ -1229,13 +1229,15 @@ window.startApp = () => {
       el("div", { class: "chips" }, [["todo", "Todo"], ["hechas", "Hechas"], ["reuniones", "Reuniones"], ["avances", "Avances"], ["liq", "Liquidaciones"]].map(([k, l]) => el("button", { type: "button", "aria-pressed": String(S.histFilter === k), text: l, onclick: () => { S.histFilter = k; renderHist(); } })))));
     const hs = S.hist.filter(F[S.histFilter]);
     if (!hs.length) right.append(el("div", { class: "empty" }, el("b", { text: "Sin actividad todavía" }), el("span", { text: "Cada vez que alguien crea, mueve, completa o anota un avance, queda registrado aquí con su nombre y la hora." })));
-    else right.append(el("div", { class: "feed" }, hs.slice(0, 120).map((h) => { const ic = h.tipo === "reunion" && h.accion === "crear" ? ICON.reunion : (ICON[h.accion] || ICON.editar);
+    else right.append(el("div", { class: "feed" }, hs.slice(0, 120).map((h) => { const ic = h.tipo === "reunion" && h.accion === "crear" ? ICON.reunion : esAuto(h) ? ICON.auto : (ICON[h.accion] || ICON.editar);
       return el("div", { class: "fe" }, el("span", { class: "ic", style: "--c:" + ic[1], text: ic[0] }),
         el("div", { class: "body" }, el("span", { class: "when", text: fmtWhen(h.t) }),
-          el("span", { class: "txt" }, el("b", { text: S.names[h.uid] || "Alguien" }), " " + verb(h) + " ", el("b", { text: h.titulo || "" })),
+          esAuto(h) ? el("span", { class: "txt" }, el("b", { text: "La agenda" }), " movió sola la tarea ", el("b", { text: h.titulo || "" })) : el("span", { class: "txt" }, el("b", { text: S.names[h.uid] || "Alguien" }), " " + verb(h) + " ", el("b", { text: h.titulo || "" })),
           h.nota ? el("span", { class: "note", text: h.nota }) : null)); })));
     box.replaceChildren(S.isOwner ? el("div", { class: "ph" }, left, right) : el("div", { class: "ph", style: "grid-template-columns:minmax(0,1fr)" }, left));
   }
+  // Tareas no cumplidas que la agenda pasó a hoy: no las editó nadie (las registra quien abrió la app primero)
+  const esAuto = (h) => h.accion === "auto" || (h.accion === "editar" && /pasó automáticamente/.test(h.nota || ""));
   function verb(h) { const r = h.tipo === "reunion"; return ({ crear: r ? "programó la reunión" : "programó la tarea", hecha: "marcó como hecha", reabrir: "reabrió", avance: "agregó un avance a", editar: r ? "editó la reunión" : "editó la tarea", eliminar: r ? "eliminó la reunión" : "eliminó la tarea", mover: r ? "movió la reunión" : "movió la tarea", quitar: "quitó una fecha de", liq: "actualizó en liquidación", contrato: "cambió", revision: "envió a revisión", aprobar: "aprobó", devolver: "devolvió" })[h.accion] || "modificó"; }
   function fmtWhen(t) { const d = new Date(t), s = iso(d), y = iso(addDays(new Date(), -1)); const h = pad(d.getHours()) + ":" + pad(d.getMinutes()); return s === todayISO() ? "Hoy " + h : s === y ? "Ayer " + h : fmtD(s) + " " + h; }
 
@@ -1341,6 +1343,20 @@ window.startApp = () => {
       creada: prev ? (prev.creada || now) : now, creador: prev ? (prev.creador || "") : (S.uid || ""), actualizada: now,
       completada: estado === "hecha" ? ((prev && prev.estado === "hecha" && prev.completada) || now) : "", origen: prev ? (prev.origen || "manual") : (v.origen || "manual") };
   }
+  // Qué cambió en una edición, para el historial: «Fecha: 17 nov → 18 nov · Estado: Pendiente → En curso»
+  function cambios(prev, d) {
+    if (!prev) return "";
+    const ESTL = { pendiente: "Pendiente", curso: "En curso", revision: "En revisión", hecha: "Hecha" }, PRL = { alta: "Alta", media: "Media", baja: "Baja" };
+    const cn = (id) => { const c = S.contracts.find((x) => x.id === id); return c ? c.nombre : "sin contrato"; };
+    const corto = (t) => (t || "").length > 80 ? t.slice(0, 80) + "…" : t;
+    const campos = [["Título", "titulo", corto], ["Responsable", "resp", pname], ["Contrato", "contrato", cn], ["Fecha", "fecha", (v) => v ? fmtD(v) : "sin fecha"], ["Inicio", "inicio", (v) => v || "sin hora"], ["Fin", "fin", (v) => v || "sin hora"],
+      ["Lugar", "lugar", (v) => v || "—"], ["Prioridad", "prio", (v) => PRL[v] || v || "—"], ["Estado", "estado", (v) => ESTL[v] || v || "—"]];
+    const out = campos.filter(([, k]) => (prev[k] || "") !== (d[k] || "")).map(([n, k, f]) => n + ": " + f(prev[k] || "") + " → " + f(d[k] || ""));
+    if ((prev.notas || "") !== (d.notas || "")) out.push(d.notas ? "Notas: «" + corto(d.notas) + "»" : "Borró las notas");
+    const rp = (r) => r && r.freq ? r.freq + (r.hasta ? " hasta " + fmtD(r.hasta) : "") : "no se repite";
+    if (rp(prev.rep) !== rp(d.rep)) out.push("Repetición: " + rp(prev.rep) + " → " + rp(d.rep));
+    return out.join(" · ");
+  }
   function validate(v) {
     if (!v.titulo) return v.tipo === "reunion" ? "Escribe el asunto de la reunión." : "Escribe qué hay que hacer.";
     if (v.tipo === "reunion") { if (!v.fecha || !v.inicio) return "La reunión necesita fecha y hora de inicio."; if (v.fin && toMin(v.fin) <= toMin(v.inicio)) return "La hora de fin debe ser después del inicio."; }
@@ -1363,7 +1379,8 @@ window.startApp = () => {
     try {
       let id = prev && prev.id;
       if (prev) await S.db.doc("agenda/" + prev.id).set(data); else id = (await S.db.collection("agenda").add(data)).id;
-      log(!prev ? "crear" : (data.estado === "hecha" && prev.estado !== "hecha" ? "hecha" : "editar"), Object.assign({ id }, data), pend);
+      const camb = cambios(prev, data);
+      log(!prev ? "crear" : (data.estado === "hecha" && prev.estado !== "hecha" ? "hecha" : "editar"), Object.assign({ id }, data), [camb, pend ? "Avance: " + pend : ""].filter(Boolean).join(" · ") || (prev ? "Guardó sin cambios" : ""));
       closeDlg(); toast(prev ? "Guardado" : (S.tipo === "reunion" ? "Reunión programada" : "Tarea programada"));
     } catch (e) { showErr(writeErr(e)); } finally { $("btn-save").disabled = S.readOnly; }
   }
@@ -2633,7 +2650,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 17/11 12:10";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 18/11 12:13";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
