@@ -571,6 +571,10 @@ select.est { -webkit-appearance: none; appearance: none; border: 1px solid color
 .cr-f.wide { grid-column: 1 / -1; }
 .cr-f[hidden], .cr-chk[hidden] { display: none; }
 .cr-chk { display: flex; align-items: center; gap: 6px; font-size: 12.5px; grid-column: 1 / -1; }
+.cr-nota.cr-warn { color: var(--warn); font-weight: 600; }
+.lq-pend { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-weight: 600; }
+.rad-det > summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 4px 0; }
+.rad-det[open] > summary { margin-bottom: 4px; }
 .cr-go { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .cr-tl { display: grid; }
 .cr-ev { display: grid; grid-template-columns: 52px 24px minmax(0, 1fr) auto; gap: 0 8px; }
@@ -1102,7 +1106,13 @@ window.startApp = () => {
 
   function renderView() {
     $("v-agenda").hidden = S.view !== "agenda"; $("v-semana").hidden = S.view !== "semana"; $("v-mes").hidden = S.view !== "mes"; $("v-historial").hidden = S.view !== "historial"; $("v-liq").hidden = S.view !== "liq"; $("v-informes").hidden = S.view !== "informes";
-    if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") renderLiq(); else if (S.view === "informes") renderInformes(); else renderHist();
+    if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") { if (liqOcupado()) liqAvisoPend(); else renderLiq(); } else if (S.view === "informes") renderInformes(); else renderHist();
+  }
+  // Mientras alguien escribe en el panel de un requisito (o en «agregar»), los datos que llegan solos no repintan la vista: se esperan a Guardar/Cancelar
+  function liqOcupado() { const v = $("v-liq"); return !!(L.sucio && v && !v.hidden && v.querySelector(".lq-ed, .lq-add")); }
+  function liqAvisoPend() {
+    const ed = $("v-liq").querySelector(".lq-ed"); if (!ed || ed.querySelector(".lq-pend")) return;
+    ed.prepend(el("div", { class: "full lq-pend", role: "status", text: "Llegaron datos nuevos. Se mostrarán cuando guardes o canceles; lo que estás escribiendo no se pierde." }));
   }
 
   // ---------- arrastrar tareas (y reuniones en el mes) ----------
@@ -2175,6 +2185,8 @@ window.startApp = () => {
 
   function renderLiq() {
     const box = $("v-liq");
+    L.sucio = false;
+    if (!box._vigila) { box._vigila = true; const m = (e) => { if (e.target.closest && e.target.closest(".lq-ed, .lq-add")) L.sucio = true; }; box.addEventListener("input", m); box.addEventListener("change", m); }
     const c = L.sel && S.contracts.find((x) => x.id === L.sel);
     if (c) return renderLiqDetail(box, c);
     L.sel = null;
@@ -2357,14 +2369,14 @@ window.startApp = () => {
       el("div", { class: "field" }, el("label", { text: "Responsable" }), rp),
       el("div", { class: "field" }, el("label", { text: "Responsable interno" }), ri),
       el("div", { class: "field full" }, el("label", { text: "Observaciones" }), o),
-      radEditor(x, ro),
+      el("details", { class: "full rad-det" }, el("summary", { text: "Registro automático de cambios de estado" + ((x.rads || []).length ? " (" + x.rads.length + ")" : "") + " · se llena solo; ábrelo solo para corregir" }), radEditor(x, ro)),
       el("div", { class: "acts" },
-        el("div", null, el("button", { type: "button", class: "btn", disabled: ro, text: x.oculto ? "Sí aplica" : "No aplica", onclick: () => { saveLiq(c, x, { oculto: !x.oculto }); L.edit = null; } }),
+        el("div", null, el("button", { type: "button", class: "btn", disabled: ro, text: x.oculto ? "Sí aplica" : "No aplica", onclick: () => { L.sucio = false; saveLiq(c, x, { oculto: !x.oculto }); L.edit = null; } }),
           x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar entregable", onclick: () => { L.add = x.r; L.open[x.r] = true; L.edit = null; renderLiq(); } }) : null,
           x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar requisito principal", title: "Se agrega debajo de este requisito y sus entregables", onclick: () => { L.addP = x.r; L.add = null; L.open[x.r] = false; L.edit = null; renderLiq(); } }) : null,
-          el("button", { type: "button", class: "btn danger", disabled: ro, text: "Eliminar", title: x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } delLiqItem(c, x); } })),
+          el("button", { type: "button", class: "btn danger", disabled: ro, text: "Eliminar", title: x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } L.sucio = false; delLiqItem(c, x); } })),
         el("div", null, el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.edit = null; renderLiq(); } }),
-          el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; saveLiq(c, x, { pl: pl.value, rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim(), rads: radsEditados(x) }); } }))));
+          el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; L.sucio = false; saveLiq(c, x, { pl: pl.value, rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim(), rads: radsEditados(x) }); } }))));
   }
   // ---------- Cronología del requisito: bitácora, compromisos y versiones ----------
   // Cada evento: { id, f, tipo: compromiso|rad|obs|apr|nota, a: int|idu|esp|nos (con quién), v, of, n, prom, s (estado que dejó), por, t }
@@ -2446,6 +2458,7 @@ window.startApp = () => {
       const nota = el("small", { class: "muted cr-nota" });
       const sync = () => {
         const tp = tipo.value, compromiso = tp === "compromiso";
+        nota.classList.remove("cr-warn");
         fQuien.hidden = compromiso || tp === "nota"; fProm.hidden = !compromiso; fPl.hidden = !compromiso; fPor.hidden = !compromiso; fEst.hidden = compromiso || tp === "nota"; fOf.hidden = compromiso || tp === "nota";
         if (tp === "obs" && quien.value === "nos") quien.value = "int";
         if (tp === "rad" || tp === "obs") ve.value = tp === "rad" ? sugV : ultV;
@@ -2454,11 +2467,15 @@ window.startApp = () => {
         nota.textContent = !est.value || fEst.hidden ? (compromiso ? "Queda vigilado: si llega la fecha sin radicación, sale como incumplido" + (usarPl.checked ? ", y esa fecha queda como plazo del requisito (sale en la agenda)." : ".") : "") :
           "Al guardar, el requisito pasa a «" + EST_L[est.value] + "»" + (nk ? (EST.indexOf(est.value) < EST.indexOf(x.s) ? " y sus entregables que van delante bajan con él." : " y sus " + nk + " entregables que van atrás suben con él (salvo excepciones).") : ".");
       };
-      tipo.addEventListener("change", sync); usarPl.addEventListener("change", sync); quien.addEventListener("change", sync); est.addEventListener("change", () => { const keep = est.value; sync(); est.value = keep; nota.textContent = keep ? "Al guardar, el requisito pasa a «" + EST_L[keep] + "»." : "El estado no cambia."; });
+      tipo.addEventListener("change", () => { sync(); nota.classList.remove("cr-warn"); btn.classList.remove("armed"); btn.textContent = "Agregar a la bitácora"; }); usarPl.addEventListener("change", sync); quien.addEventListener("change", sync); est.addEventListener("change", () => { const keep = est.value; sync(); est.value = keep; avisoEst(); });
+      const raro = () => { const sug = estadoDe(tipo.value, quien.value); return !fEst.hidden && sug && est.value && est.value !== sug ? sug : ""; };
+      const avisoEst = () => { const sug = raro(); btn.classList.remove("armed"); btn.textContent = "Agregar a la bitácora"; nota.classList.toggle("cr-warn", !!sug);
+        nota.textContent = sug ? "⚠ Ojo: una «" + BIT_T[tipo.value][0] + "» de " + QUIEN[quien.value][0] + " normalmente deja el requisito en «" + EST_L[sug] + "», y elegiste «" + EST_L[est.value] + "». Revisa el tipo de evento." : est.value ? "Al guardar, el requisito pasa a «" + EST_L[est.value] + "»." : "El estado no cambia."; };
       const btn = el("button", { type: "button", class: "btn primary", text: "Agregar a la bitácora" });
       btn.onclick = async () => {
         const tp = tipo.value;
         if (!fe.value) { toast("Pon la fecha del evento"); return; }
+        if (raro() && !btn.classList.contains("armed")) { btn.classList.add("armed"); btn.textContent = "¿Guardar así de todos modos?"; return; }
         if (tp === "compromiso" && !prom.value) { toast("Pon la fecha prometida"); return; }
         const e = { id: Date.now().toString(36), f: fe.value, tipo: tp, a: tp === "compromiso" || tp === "nota" ? "nos" : quien.value, v: ve.value, of: of.value.trim(), n: nt.value.trim(), t: new Date().toISOString() };
         if (tp === "compromiso") { e.prom = prom.value; e.por = por.value.trim(); }
@@ -2486,7 +2503,7 @@ window.startApp = () => {
             el("span", { class: "meta" }, el("b", { text: e.v }), e.por ? el("span", { text: e.por }) : null, e.of ? el("span", { text: e.of }) : null, e.s ? el("span", { text: "→ " + EST_L[e.s] }) : null),
             e.n ? el("span", { class: "n", text: e.n }) : null,
             cambio && n !== "fin" ? el("span", { class: "hand", style: "--c:" + QUIEN[n][1], text: "→ queda en manos de " + QUIEN[n][0] }) : n === "fin" && cambio ? el("span", { class: "hand", style: "--c:var(--done)", text: "→ cerrado" }) : null),
-          ro ? null : el("button", { type: "button", class: "x", title: "Quitar este evento (no devuelve el estado)", "aria-label": "Quitar evento", text: "×", onclick: (ev) => { const b = ev.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "¿Quitar?"; return; } L.edit = x.r; saveLiq(c, x, { bit: (x.bit || []).filter((y) => y.id !== e.id) }); } }));
+          ro ? null : el("button", { type: "button", class: "x", title: "Quitar este evento (no devuelve el estado)", "aria-label": "Quitar evento", text: "×", onclick: (ev) => { const b = ev.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "¿Quitar?"; return; } L.edit = x.r; L.sucio = false; saveLiq(c, x, { bit: (x.bit || []).filter((y) => y.id !== e.id) }); } }));
       });
       box.append(el("div", { class: "cr-sub", text: "Bitácora" }), el("div", { class: "cr-tl" }, rows.reverse()));
     }
@@ -2553,9 +2570,9 @@ window.startApp = () => {
   function addRow(c, p, anchor, n) {
     const inp = el("input", { placeholder: n === "p" ? "Nuevo requisito principal (va después de \"" + p.q.slice(0, 40) + "\")" : "Nuevo entregable de \"" + p.q.slice(0, 40) + "\"", maxlength: "200", "aria-label": n === "p" ? "Nuevo requisito principal" : "Nuevo entregable" });
     const salir = () => { L.add = null; L.addP = null; renderLiq(); };
-    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addLiqItem(c, p, anchor, inp.value, n); } if (e.key === "Escape") salir(); });
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); L.sucio = false; addLiqItem(c, p, anchor, inp.value, n); } if (e.key === "Escape") salir(); });
     setTimeout(() => inp.focus(), 0);
-    return el("div", { class: "lq-add" + (n === "p" ? " p" : "") }, inp, el("button", { type: "button", class: "btn primary", text: "Agregar", onclick: () => addLiqItem(c, p, anchor, inp.value, n) }), el("button", { type: "button", class: "btn", text: "Cancelar", onclick: salir }));
+    return el("div", { class: "lq-add" + (n === "p" ? " p" : "") }, inp, el("button", { type: "button", class: "btn primary", text: "Agregar", onclick: () => { L.sucio = false; addLiqItem(c, p, anchor, inp.value, n); } }), el("button", { type: "button", class: "btn", text: "Cancelar", onclick: salir }));
   }
 
   // ---------- agenda (lista por días, pensada para celular) ----------
@@ -2903,7 +2920,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 18/11 23:58";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 19/11 11:34";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
