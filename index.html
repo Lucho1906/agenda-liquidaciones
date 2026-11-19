@@ -2328,7 +2328,8 @@ window.startApp = () => {
     }
     items.forEach((x) => {
       if (x.n === "x") return;
-      if (x.n === "g") { if (!filtering || grpHas(x.r)) { if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } list.append(el("div", { class: "lq-g" }, el("span", { text: x.q }), el("span", { class: "lq-gr" }, S.readOnly ? null : el("button", { type: "button", class: "btn lq-gpl-b" + (L.gpl === x.r ? " primary" : ""), text: "Plazo a todo el grupo", title: "Poner el mismo plazo a todos los requisitos de este grupo", onclick: () => { L.gpl = L.gpl === x.r ? null : x.r; renderLiq(); } }), estSel(c, x)))); if (L.gpl === x.r) list.append(plazoGrupo(c, x, items)); } return; }
+      if (x.n === "g") { if (!items.some((y) => y.g === x.r && (y.n === "p" || y.n === "e") && (L.showHidden || !y.oculto))) return; // grupo sin requisitos (eliminados o «no aplica»): no se muestra
+        if (!filtering || grpHas(x.r)) { if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } list.append(el("div", { class: "lq-g" }, el("span", { text: x.q }), el("span", { class: "lq-gr" }, S.readOnly ? null : el("button", { type: "button", class: "btn lq-gpl-b" + (L.gpl === x.r ? " primary" : ""), text: "Plazo a todo el grupo", title: "Poner el mismo plazo a todos los requisitos de este grupo", onclick: () => { L.gpl = L.gpl === x.r ? null : x.r; renderLiq(); } }), estSel(c, x)))); if (L.gpl === x.r) list.append(plazoGrupo(c, x, items)); } return; }
       if (x.n === "p") { if (!visP.has(x.r)) return; if (x.et !== et) { et = x.et; list.append(el("div", { class: "lq-et", text: et })); } shown++; list.append(liqRow(c, x, kids[x.r] || [], filtering, filtering && ctxP.has(x.r))); if (L.edit === x.r) list.append(liqEditor(c, x)); if (L.addP === x.r) list.append(addRow(c, x, x.r, "p")); return; }
       if (x.n === "e") { const open = isOpen(x.p); if (!x.p) { if (!visE.has(x.r)) return; } else if (!open || !visE.has(x.r) || !visP.has(x.p)) return; shown++; list.append(liqRow(c, x, null, filtering)); if (L.edit === x.r) list.append(liqEditor(c, x));
         const sib = kids[x.p] || []; if (L.add === x.p && sib[sib.length - 1] === x) list.append(addRow(c, items.find((y) => y.r === x.p), x.r)); }
@@ -2929,7 +2930,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 19/11 11:43";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 19/11 13:47";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
