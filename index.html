@@ -550,6 +550,48 @@ details.lq-dt summary { cursor: pointer; font-weight: 600; font-size: 13px; }
 select.est { -webkit-appearance: none; appearance: none; border: 1px solid color-mix(in srgb, var(--e) 55%, transparent); background: color-mix(in srgb, var(--e) 16%, var(--bg)); color: var(--ink); border-radius: 999px; padding: 4px 12px; font-size: 11px; font-weight: 600; max-width: 180px; cursor: pointer; }
 .lq-ed { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 2px 0 6px; }
 .lq-ed .full { grid-column: 1 / -1; }
+.cr { display: grid; gap: 10px; background: var(--side); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.cr-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; justify-content: space-between; }
+.cr-h b { font-size: 14px; }
+.cr-hold { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; }
+.cr-leg { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--muted); }
+.cr-leg i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.cr-leg b { color: var(--ink); }
+.cr-vers { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.cr-ver { background: var(--card); border-radius: 8px; padding: 7px 10px; display: grid; border-left: 3px solid var(--c); font-size: 12px; }
+.cr-ver b { font-size: 14px; }
+.cr-sub { font-size: 12px; font-weight: 700; color: var(--muted); }
+.cr-comp { display: grid; gap: 6px; }
+.cr-cp { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; background: var(--card); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.cr-cp .ic { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--bg); background: var(--c); }
+.cr-cp .st { color: var(--c); font-weight: 600; text-align: right; }
+.cr-cp small { display: block; }
+.cr-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; background: var(--card); border-radius: 8px; padding: 10px; }
+.cr-f { display: grid; gap: 3px; font-size: 11.5px; color: var(--muted); min-width: 0; }
+.cr-f.wide { grid-column: 1 / -1; }
+.cr-f[hidden], .cr-chk[hidden] { display: none; }
+.cr-chk { display: flex; align-items: center; gap: 6px; font-size: 12.5px; grid-column: 1 / -1; }
+.cr-go { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.cr-tl { display: grid; }
+.cr-ev { display: grid; grid-template-columns: 52px 24px minmax(0, 1fr) auto; gap: 0 8px; }
+.cr-ev .d { font-size: 12px; color: var(--muted); text-align: right; padding-top: 2px; }
+.cr-ev .dot { display: flex; flex-direction: column; align-items: center; }
+.cr-ev .dot i { width: 20px; height: 20px; border-radius: 50%; background: var(--c); display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700; color: var(--bg); flex: none; }
+.cr-ev .dot::after { content: ""; flex: 1; width: 2px; background: var(--line); min-height: 12px; }
+.cr-ev:last-child .dot::after { display: none; }
+.cr-ev .b { display: grid; gap: 2px; padding-bottom: 12px; min-width: 0; font-size: 13px; }
+.cr-ev .t { font-weight: 600; }
+.cr-ev .meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--muted); }
+.cr-ev .meta b { color: var(--ink); }
+.cr-ev .n { color: var(--muted); }
+.cr-ev .hand { font-size: 12px; font-weight: 600; color: var(--c); }
+.cr-ev .x { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 14px; align-self: start; padding: 0 4px; }
+.cr-ev .x.armed { color: var(--late); font-size: 12px; font-weight: 600; }
+.cr-tag { color: var(--c); font-weight: 600; }
+.cr-dlg { width: min(780px, calc(100vw - 24px)); padding: 16px; }
+.cr-dlg[open] { display: grid; gap: 10px; }
+.cr-scroll { overflow-x: auto; }
+.cr-svg { width: 100%; height: auto; display: block; }
 .lq-ed .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
 .lq-ed .acts div { display: flex; gap: 8px; flex-wrap: wrap; }
 .lq-add { display: flex; gap: 8px; padding: 4px 6px 8px 34px; }
@@ -1869,21 +1911,21 @@ window.startApp = () => {
 
 
   // ---------- liquidaciones ----------
-  const EST = ["EN PROCESO", "RADICADO A INT", "RADICADO A IDU", "RADICADO A LA ESP", "APROBADO POR LA ESP", "APROBADO POR IDU"];
-  const EST_L = { "EN PROCESO": "En proceso", "RADICADO A INT": "Radicado a interventoría", "RADICADO A IDU": "Radicado a IDU", "RADICADO A LA ESP": "Radicado a la ESP", "APROBADO POR LA ESP": "Aprobado por la ESP", "APROBADO POR IDU": "Aprobado por IDU" };
-  const EST_C = { "EN PROCESO": "#8b98a5", "RADICADO A INT": "#facc15", "RADICADO A IDU": "#fb923c", "RADICADO A LA ESP": "#c084fc", "APROBADO POR LA ESP": "#38bdf8", "APROBADO POR IDU": "#34d399" };
+  const EST = ["EN PROCESO", "RADICADO A INT", "APROBADO POR INT", "RADICADO A IDU", "RADICADO A LA ESP", "APROBADO POR LA ESP", "APROBADO POR IDU"];
+  const EST_L = { "EN PROCESO": "En proceso", "RADICADO A INT": "Radicado a interventoría", "APROBADO POR INT": "Aprobado por interventoría", "RADICADO A IDU": "Radicado a IDU", "RADICADO A LA ESP": "Radicado a la ESP", "APROBADO POR LA ESP": "Aprobado por la ESP", "APROBADO POR IDU": "Aprobado por IDU" };
+  const EST_C = { "EN PROCESO": "#8b98a5", "RADICADO A INT": "#facc15", "APROBADO POR INT": "#a3e635", "RADICADO A IDU": "#fb923c", "RADICADO A LA ESP": "#c084fc", "APROBADO POR LA ESP": "#38bdf8", "APROBADO POR IDU": "#34d399" };
   const FASES = { liquidacion: "En liquidación", ejecucion: "En ejecución", garantias: "En garantías", definir: "Por definir" };
   const TIPOS = { construccion: "Construcción", conservacion: "Conservación", otro: "Otro" };
   const DONE_EST = "APROBADO POR IDU";
   // Avance ponderado: cada requisito principal suma según la etapa en que va
-  const PESO = { "EN PROCESO": 0, "RADICADO A INT": 0.25, "RADICADO A IDU": 0.5, "RADICADO A LA ESP": 0.6, "APROBADO POR LA ESP": 1, "APROBADO POR IDU": 1 };
-  const PESO_TXT = "En proceso 0% · Radicado a interventoría 25% · Radicado a IDU 50% · Radicado a la ESP 60% · Aprobado (IDU o ESP) 100%";
+  const PESO = { "EN PROCESO": 0, "RADICADO A INT": 0.25, "APROBADO POR INT": 0.4, "RADICADO A IDU": 0.5, "RADICADO A LA ESP": 0.6, "APROBADO POR LA ESP": 1, "APROBADO POR IDU": 1 };
+  const PESO_TXT = "En proceso 0% · Radicado a interventoría 25% · Aprobado por interventoría 40% · Radicado a IDU 50% · Radicado a la ESP 60% · Aprobado (IDU o ESP) 100%";
   // Un requisito queda cerrado cuando lo aprueba el IDU o la ESP.
   const cerrado = (s) => s === "APROBADO POR IDU" || s === "APROBADO POR LA ESP";
   // Ya radicado o aprobado: el plazo de entrega se cumplió, así que no cuenta como vencido
   const entregado = (s) => EST.indexOf(s) >= 1;
   // Control de radicaciones: cada cambio de estado deja un evento con fecha (radicado, aprobado o devuelto)
-  const tipoEv = (s) => s && s.startsWith("RADICADO") ? "rad" : cerrado(s) ? "apr" : "dev";
+  const tipoEv = (s) => s && s.startsWith("RADICADO") ? "rad" : s && s.startsWith("APROBADO") ? "apr" : "dev";
   function conEvento(rads, de, a) {
     const r = (rads || []).slice(), t = todayISO();
     if (!a || a === de || (tipoEv(a) === "dev" && !entregado(de))) return r;
@@ -1908,7 +1950,7 @@ window.startApp = () => {
     const cur = steps.find(([, d]) => d >= t0) || null;
     return { steps, cur, days: cur ? daysBetween(t0, cur[1]) : null };
   }
-  const pickMod = (m) => { const o = {}; ["s", "pl", "rp", "ri", "o", "oculto", "q", "eliminado", "rads"].forEach((k) => { if (k in m) o[k] = m[k]; }); return o; };
+  const pickMod = (m) => { const o = {}; ["s", "pl", "rp", "ri", "o", "oculto", "q", "eliminado", "rads", "bit"].forEach((k) => { if (k in m) o[k] = m[k]; }); return o; };
   function liqItems(cid) {
     const base = (S.liq[cid] && S.liq[cid].items) || [];
     const mods = Object.values(S.liqmod).filter((m) => m.cid === cid);
@@ -2062,6 +2104,7 @@ window.startApp = () => {
     const data = Object.assign({ cid: c.id, row: x.r, s: x.s || "", pl: x.pl || "", rp: x.rp || "", ri: x.ri || "", o: x.o || "", oculto: !!x.oculto },
       x.nuevo ? { nuevo: true, despues: prev.despues || "", n: x.n, et: x.et || "", a: x.a || "", q: x.q, creada: prev.creada || prev.t || "" } : {}, patch, { t: new Date().toISOString(), uid: S.uid || "" });
     data.rads = patch.rads || conEvento(x.rads || prev.rads, x.s, patch.s);
+    const bit = patch.bit || x.bit || prev.bit; if (bit && bit.length) data.bit = bit; else delete data.bit;
     // Un entregable que se deja a mano por detrás de su principal queda como excepción (no lo arrastran cambios posteriores)
     if (x.n === "e" && patch.s && x.p) { const pr = annotate(liqItems(c.id)).find((y) => y.r === x.p); data.excepcion = !!pr && EST.indexOf(patch.s) < EST.indexOf(pr.s); }
     else if (prev.excepcion != null && data.excepcion == null) data.excepcion = prev.excepcion;
@@ -2071,6 +2114,8 @@ window.startApp = () => {
     if (patch.o != null && patch.o !== (x.o || "")) parts.push(patch.o.slice(0, 160));
     if (patch.rads && JSON.stringify(patch.rads) !== JSON.stringify(x.rads || [])) parts.push("registro de radicaciones: " + patch.rads.filter((e) => e.tipo === "rad").length + " radicaciones");
     if (patch.oculto != null && patch.oculto !== !!x.oculto) parts.push(patch.oculto ? "marcado como no aplica" : "vuelve a aplicar");
+    if (patch.bit && patch.bit.length > (x.bit || []).length) { const e = patch.bit[patch.bit.length - 1]; parts.push("bitácora: " + bitTexto(e)); }
+    else if (patch.bit && patch.bit.length < (x.bit || []).length) parts.push("bitácora: quitó un evento");
     try {
       await S.db.doc("liqmod/" + key).set(data);
       if (parts.length > 1) log("liq", { tipo: "liq", titulo: x.q, id: key }, parts.join(" · "));
@@ -2101,6 +2146,7 @@ window.startApp = () => {
       const k = c.id + "__" + y.r, pv = S.liqmod[k] || {};
       const d = Object.assign({ cid: c.id, row: y.r, s: nuevo, pl: y.pl || "", rp: y.rp || "", ri: y.ri || "", o: y.o || "", oculto: !!y.oculto },
         y.nuevo ? { nuevo: true, despues: pv.despues || "", n: "e", et: y.et || "", a: y.a || "", q: y.q, creada: pv.creada || pv.t || "" } : {}, { t: new Date().toISOString(), uid: S.uid || "", arrastre: p.r, excepcion: false, rads: conEvento(y.rads || pv.rads, y.s, nuevo) });
+      if ((y.bit || pv.bit || []).length) d.bit = y.bit || pv.bit;
       await S.db.doc("liqmod/" + k).set(d);
     }
     if (hijos.length) log("liq", { tipo: "liq", titulo: p.q, id: c.id + "__" + p.r }, c.codigo + " · " + hijos.length + (hijos.length === 1 ? " entregable pasó" : " entregables pasaron") + " automáticamente a " + (EST_L[nuevo] || nuevo) + ": " + hijos.map((y) => y.q).join(", ").slice(0, 300));
@@ -2202,7 +2248,7 @@ window.startApp = () => {
     const items = annotate(liqItems(c.id)), st = liqStats(c.id);
     parts.push(el("div", { class: "lq-stats" },
       el("div", { class: "lq-duo", style: colorVars(c.color) },
-        el("div", { class: "lq-ind", style: "--ic:var(--c)", title: PESO_TXT }, el("span", { class: "lbl", text: "Avance de gestión" }), el("b", { text: st.total ? st.pct + "%" : "–" }), el("span", { class: "bar" }, el("i", { style: "width:" + st.pct + "%" })), el("small", { text: "Suma por etapa: radicado a interventoría 25%, a IDU 50%, a la ESP 60%, aprobado 100%." })),
+        el("div", { class: "lq-ind", style: "--ic:var(--c)", title: PESO_TXT }, el("span", { class: "lbl", text: "Avance de gestión" }), el("b", { text: st.total ? st.pct + "%" : "–" }), el("span", { class: "bar" }, el("i", { style: "width:" + st.pct + "%" })), el("small", { text: "Suma por etapa: radicado a interventoría 25%, aprobado por interventoría 40%, a IDU 50%, a la ESP 60%, aprobado 100%." })),
         el("div", { class: "lq-ind", style: "--ic:" + EST_C["APROBADO POR IDU"] }, el("span", { class: "lbl", text: "Avance cerrado" }), el("b", { text: st.total ? st.pctC + "%" : "–" }), el("span", { class: "bar" }, el("i", { style: "width:" + st.pctC + "%" })), el("small", { text: st.done + " de " + st.total + " requisitos principales aprobados por IDU o por la ESP." }))),
       (st.radP || st.late) ? el("div", { class: "lq-gap" }, st.radP ? el("span", null, el("b", { text: (st.pct - st.pctC) + " puntos radicados esperan aprobación" }), " (" + st.radP + (st.radP === 1 ? " principal" : " principales") + "): cuando los aprueben, el avance cerrado los alcanza.") : null,
         st.late ? el("span", { class: "late", text: (st.radP ? " · " : "") + "Plazo vencido: " + st.lateP + (st.lateP === 1 ? " principal" : " principales") + " y " + st.lateE + (st.lateE === 1 ? " entregable" : " entregables") + "." }) : null) : null,
@@ -2287,6 +2333,7 @@ window.startApp = () => {
           x.rp ? el("span", { text: x.rp }) : null,
           x.pl ? el("span", { class: late ? "late" : "", text: (late ? "Venció " : "Plazo ") + fmtD(x.pl) }) : (x.plt ? el("span", { text: x.plt }) : null),
           nRad(x) ? el("span", { class: "rad-tag", title: (x.rads || []).map((e, i) => (EV_L[e.tipo]) + " · " + (EST_L[e.s] || e.s) + " · " + fmtDY(e.f) + (e.n ? " · " + e.n : "")).join("\n"), text: (nRad(x) === 1 ? "Radicado " : nRad(x) + " radicaciones · última ") + fmtD(ultRad(x)) }) : null,
+          ...(cronoTag(x) || []),
           x.oculto ? el("span", { text: "No aplica" }) : null,
           x.o ? el("span", { class: "obs", text: x.o.length > 110 ? x.o.slice(0, 110) + "…" : x.o, title: x.o }) : null),
         L.editList && !S.readOnly ? rowActs(c, x) : null),
@@ -2305,6 +2352,7 @@ window.startApp = () => {
     const pl = el("input", { type: "date", value: x.pl || "", disabled: ro }), rp = el("input", { value: x.rp || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Oscar" }), ri = el("input", { value: x.ri || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Luis Villegas" });
     const o = el("textarea", { maxlength: "2000", disabled: ro, placeholder: "Qué pasó, qué falta, a quién se le envió…" }); o.value = x.o || "";
     return el("div", { class: "lq-ed" },
+      cronoPanel(c, x),
       el("div", { class: "field" }, el("label", { text: "Plazo de entrega" }), pl),
       el("div", { class: "field" }, el("label", { text: "Responsable" }), rp),
       el("div", { class: "field" }, el("label", { text: "Responsable interno" }), ri),
@@ -2317,6 +2365,167 @@ window.startApp = () => {
           el("button", { type: "button", class: "btn danger", disabled: ro, text: "Eliminar", title: x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } delLiqItem(c, x); } })),
         el("div", null, el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.edit = null; renderLiq(); } }),
           el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; saveLiq(c, x, { pl: pl.value, rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim(), rads: radsEditados(x) }); } }))));
+  }
+  // ---------- Cronología del requisito: bitácora, compromisos y versiones ----------
+  // Cada evento: { id, f, tipo: compromiso|rad|obs|apr|nota, a: int|idu|esp|nos (con quién), v, of, n, prom, s (estado que dejó), por, t }
+  const QUIEN = { nos: ["Profesional / nosotros", "var(--muted)"], int: ["Interventoría", EST_C["RADICADO A INT"]], idu: ["IDU", EST_C["RADICADO A IDU"]], esp: ["ESP", EST_C["RADICADO A LA ESP"]] };
+  const BIT_T = { compromiso: ["Compromiso de fecha", "var(--accent)", "⏱"], rad: ["Radicación", EST_C["RADICADO A INT"], "↑"], obs: ["Observaciones", "var(--late)", "!"], apr: ["Aprobación", "var(--done)", "✓"], nota: ["Nota", "var(--muted)", "✎"] };
+  const VERS = ["v1", "v2", "v3", "v4", "v5", "v6"];
+  const bitTexto = (e) => (BIT_T[e.tipo] || ["Evento"])[0] + (e.tipo === "rad" ? " a " + QUIEN[e.a][0] : e.tipo === "obs" || e.tipo === "apr" ? " de " + QUIEN[e.a][0] : "") + " · " + e.v + " · " + fmtD(e.f) + (e.tipo === "compromiso" && e.prom ? " (para el " + fmtD(e.prom) + ")" : "") + (e.of ? " · " + e.of : "") + (e.n ? " · " + e.n.slice(0, 120) : "");
+  // Estado que propone cada evento; la persona lo puede cambiar antes de guardar
+  function estadoDe(tipo, a) {
+    if (tipo === "rad") return a === "idu" ? "RADICADO A IDU" : a === "esp" ? "RADICADO A LA ESP" : "RADICADO A INT";
+    if (tipo === "obs") return "EN PROCESO";
+    if (tipo === "apr") return a === "esp" ? "APROBADO POR LA ESP" : a === "int" ? "APROBADO POR INT" : "APROBADO POR IDU";
+    return "";
+  }
+  // Con quién queda el documento después de cada evento
+  const quedaCon = (e, antes) => e.tipo === "rad" ? e.a : e.tipo === "obs" ? "nos" : e.tipo === "apr" ? (e.a === "int" ? "int" : "fin") : antes;
+  function cronoCalc(x) {
+    const ev = (x.bit || []).slice().sort((a, b) => (a.f + (a.t || "")).localeCompare(b.f + (b.t || ""))), t0 = todayISO();
+    const tr = []; let cur = null, h = "nos";
+    ev.forEach((e) => { const n = quedaCon(e, h); if (n !== h || !cur) { if (cur) cur.h = e.f; cur = n === "fin" ? null : { a: n, d: e.f }; if (cur) tr.push(cur); h = n; } });
+    if (cur) cur.h = t0;
+    tr.forEach((t, i) => { const fin = i < tr.length - 1 ? tr[i + 1].d : "9999", es = ev.filter((e) => e.f >= t.d && e.f < fin); t.v = es.length ? es[es.length - 1].v : ""; });
+    const cs = ev.filter((e) => e.tipo === "compromiso" && e.prom).map((c) => {
+      const r = ev.find((y) => (y.tipo === "rad" || y.tipo === "apr") && y.v === c.v && y.f >= c.f);
+      const st = r ? (r.f <= c.prom ? "ok" : "tarde") : c.prom < t0 ? "inc" : "pend";
+      return { c, r, st };
+    });
+    return { ev, tr, cs, h, ver: ev.length ? ev[ev.length - 1].v : "" };
+  }
+  const CS = { ok: ["var(--done)", "✓", "Cumplido"], tarde: ["#f472b6", "↷", "Cumplido tarde"], inc: ["var(--late)", "✕", "Incumplido"], pend: ["var(--accent)", "⏱", "Pendiente"] };
+  // Resumen corto para la fila del requisito
+  function cronoTag(x) {
+    if (!(x.bit || []).length) return null;
+    const K = cronoCalc(x), u = K.tr[K.tr.length - 1], inc = K.cs.filter((o) => o.st === "inc").length, pend = K.cs.find((o) => o.st === "pend");
+    return [u && K.h !== "fin" ? el("span", { class: "cr-tag", style: "--c:" + QUIEN[u.a][1], text: K.ver + " · con " + QUIEN[u.a][0].replace(" / nosotros", "") + " hace " + daysBetween(u.d, todayISO()) + " d" }) : null,
+      inc ? el("span", { class: "cr-tag", style: "--c:var(--late)", text: inc === 1 ? "compromiso incumplido" : inc + " compromisos incumplidos" }) : pend ? el("span", { class: "cr-tag", style: "--c:var(--accent)", text: "compromiso " + fmtD(pend.c.prom) }) : null];
+  }
+  function cronoPanel(c, x) {
+    const ro = S.readOnly, K = cronoCalc(x), t0 = todayISO();
+    const box = el("div", { class: "full cr" });
+    const ultV = K.ver || "v1", tuvoObs = K.ev.length && K.ev[K.ev.length - 1].tipo === "obs";
+    const sugV = tuvoObs ? (VERS[VERS.indexOf(ultV) + 1] || ultV) : ultV;
+    // Encabezado: en manos de quién, días por parte, versiones y botón del gráfico
+    const u = K.tr[K.tr.length - 1];
+    const tot = {}; K.tr.forEach((t) => (tot[t.a] = (tot[t.a] || 0) + daysBetween(t.d, t.h))); const T = Object.values(tot).reduce((a, b) => a + b, 0);
+    const vs = [...new Set(K.ev.map((e) => e.v))];
+    box.append(el("div", { class: "cr-h" }, el("b", { text: "Cronología" }),
+      K.ev.length ? el("span", { class: "muted", text: K.h === "fin" ? "Aprobado" : u ? "Lo tiene: " + QUIEN[u.a][0] + " desde el " + fmtD(u.d) + " · " + daysBetween(u.d, t0) + " días" : "" }) : el("span", { class: "muted", text: "Sin eventos todavía" }),
+      K.tr.length ? el("button", { type: "button", class: "btn", text: "▤ Ver gráfico", onclick: () => cronoGrafico(c, x, K) }) : null));
+    if (T) box.append(el("div", { class: "cr-hold" }, K.tr.map((t) => el("span", { title: QUIEN[t.a][0] + ": " + fmtD(t.d) + " a " + fmtD(t.h), style: "flex:" + Math.max(1, daysBetween(t.d, t.h)) + ";background:" + QUIEN[t.a][1] }))),
+      el("div", { class: "cr-leg" }, Object.entries(tot).map(([k, n]) => el("span", null, el("i", { style: "background:" + QUIEN[k][1] }), QUIEN[k][0] + " ", el("b", { text: n + " d" }), " (" + Math.round(n / T * 100) + "%)"))));
+    if (vs.length) box.append(el("div", { class: "cr-vers" }, vs.map((v) => { const e = K.ev.filter((y) => y.v === v), r = e.find((y) => y.tipo === "rad"), o = e.filter((y) => y.tipo === "obs").pop(), a = e.filter((y) => y.tipo === "apr").pop();
+      const st = a ? (a.a === "int" ? ["Aprobada por interventoría", EST_C["APROBADO POR INT"]] : ["Aprobada", "var(--done)"]) : o ? ["Con observaciones de " + QUIEN[o.a][0], "var(--late)"] : r ? ["Radicada a " + QUIEN[r.a][0], EST_C["RADICADO A INT"]] : ["En elaboración", "var(--muted)"];
+      return el("div", { class: "cr-ver", style: "--c:" + st[1] }, el("b", { text: v }), el("small", { text: st[0] }), el("small", { class: "muted", text: r ? "Radicada " + fmtD(r.f) + (o ? " · obs. " + fmtD(o.f) : "") : "Sin radicar" })); })));
+    // Compromisos
+    if (K.cs.length) {
+      const n = (k) => K.cs.filter((o) => o.st === k).length, venc = K.cs.filter((o) => o.st !== "pend").length;
+      box.append(el("div", { class: "cr-sub", text: "Compromisos de fecha · " + n("ok") + " a tiempo, " + n("tarde") + " tarde, " + n("inc") + " incumplidos, " + n("pend") + " pendientes" + (venc ? " · cumplió a tiempo " + n("ok") + " de " + venc : "") }),
+        el("div", { class: "cr-comp" }, K.cs.slice().reverse().map(({ c: cm, r, st }) => el("div", { class: "cr-cp", style: "--c:" + CS[st][0] },
+          el("span", { class: "ic", text: CS[st][1] }),
+          el("div", null, el("span", null, (cm.por ? cm.por + " prometió " : "Prometió ") + "la " + cm.v + " para el ", el("b", { text: fmtD(cm.prom) })), el("small", { class: "muted", text: "Dicho el " + fmtD(cm.f) + (cm.n ? ": " + cm.n : "") })),
+          el("small", { class: "st", text: st === "ok" ? "Cumplido: " + fmtD(r.f) : st === "tarde" ? "Tarde: " + fmtD(r.f) + " (" + daysBetween(cm.prom, r.f) + " d)" : st === "inc" ? "Incumplido hace " + daysBetween(cm.prom, t0) + " d" : "Faltan " + daysBetween(t0, cm.prom) + " d" })))));
+    }
+    // Formulario para agregar un evento; guarda al momento y mueve el estado del requisito (y sus entregables)
+    if (!ro) {
+      const tipo = el("select", { "aria-label": "Tipo de evento" }, Object.entries(BIT_T).map(([k, v]) => el("option", { value: k, text: v[0], selected: k === "rad" })));
+      const quien = el("select", { "aria-label": "A o de quién" }, ["int", "idu", "esp", "nos"].map((k) => el("option", { value: k, text: QUIEN[k][0] })));
+      const fe = el("input", { type: "date", value: t0, "aria-label": "Fecha del evento" });
+      const ve = el("select", { "aria-label": "Versión" }, VERS.map((v) => el("option", { value: v, text: v, selected: v === sugV })));
+      const prom = el("input", { type: "date", "aria-label": "Fecha prometida" });
+      const usarPl = el("input", { type: "checkbox", checked: true });
+      const por = el("input", { maxlength: "60", placeholder: x.rp || "Quién lo dijo", value: x.rp || "" });
+      const of = el("input", { maxlength: "80", placeholder: "N.º de oficio o radicado (opcional)" });
+      const nt = el("input", { maxlength: "400", placeholder: "Detalle: qué dijo, cuántas observaciones, qué falta…" });
+      const est = el("select", { "aria-label": "Estado que queda" }, [el("option", { value: "", text: "No cambiar el estado" }), ...EST.map((e) => el("option", { value: e, text: EST_L[e] }))]);
+      const fQuien = el("label", { class: "cr-f" }, el("span", { text: "A / de quién" }), quien), fProm = el("label", { class: "cr-f" }, el("span", { text: "Fecha prometida" }), prom);
+      const fPl = el("label", { class: "cr-chk" }, usarPl, " Usarla como plazo del requisito"), fPor = el("label", { class: "cr-f" }, el("span", { text: "Quién se compromete" }), por);
+      const fEst = el("label", { class: "cr-f" }, el("span", { text: "Estado que queda" }), est), fOf = el("label", { class: "cr-f" }, el("span", { text: "Oficio" }), of);
+      const nota = el("small", { class: "muted cr-nota" });
+      const sync = () => {
+        const tp = tipo.value, compromiso = tp === "compromiso";
+        fQuien.hidden = compromiso || tp === "nota"; fProm.hidden = !compromiso; fPl.hidden = !compromiso; fPor.hidden = !compromiso; fEst.hidden = compromiso || tp === "nota"; fOf.hidden = compromiso || tp === "nota";
+        if (tp === "obs" && quien.value === "nos") quien.value = "int";
+        if (tp === "rad" || tp === "obs") ve.value = tp === "rad" ? sugV : ultV;
+        est.value = estadoDe(tp, quien.value);
+        const nk = x.n === "p" ? annotate(liqItems(c.id)).filter((y) => y.n === "e" && y.p === x.r && !y.oculto).length : 0;
+        nota.textContent = !est.value || fEst.hidden ? (compromiso ? "Queda vigilado: si llega la fecha sin radicación, sale como incumplido" + (usarPl.checked ? ", y esa fecha queda como plazo del requisito (sale en la agenda)." : ".") : "") :
+          "Al guardar, el requisito pasa a «" + EST_L[est.value] + "»" + (nk ? (EST.indexOf(est.value) < EST.indexOf(x.s) ? " y sus entregables que van delante bajan con él." : " y sus " + nk + " entregables que van atrás suben con él (salvo excepciones).") : ".");
+      };
+      tipo.addEventListener("change", sync); usarPl.addEventListener("change", sync); quien.addEventListener("change", sync); est.addEventListener("change", () => { const keep = est.value; sync(); est.value = keep; nota.textContent = keep ? "Al guardar, el requisito pasa a «" + EST_L[keep] + "»." : "El estado no cambia."; });
+      const btn = el("button", { type: "button", class: "btn primary", text: "Agregar a la bitácora" });
+      btn.onclick = async () => {
+        const tp = tipo.value;
+        if (!fe.value) { toast("Pon la fecha del evento"); return; }
+        if (tp === "compromiso" && !prom.value) { toast("Pon la fecha prometida"); return; }
+        const e = { id: Date.now().toString(36), f: fe.value, tipo: tp, a: tp === "compromiso" || tp === "nota" ? "nos" : quien.value, v: ve.value, of: of.value.trim(), n: nt.value.trim(), t: new Date().toISOString() };
+        if (tp === "compromiso") { e.prom = prom.value; e.por = por.value.trim(); }
+        const ns = fEst.hidden ? "" : est.value; if (ns) e.s = ns;
+        const patch = { bit: (x.bit || []).concat(e) };
+        if (ns && ns !== x.s) { patch.s = ns; patch.rads = (x.rads || []).concat({ tipo: tipoEv(ns), s: ns, f: e.f, n: e.of }); }
+        if (tp === "compromiso" && usarPl.checked) patch.pl = prom.value;
+        btn.disabled = true; btn.textContent = "Guardando…";
+        L.edit = x.r; await saveLiq(c, x, patch); renderLiq();
+      };
+      box.append(el("div", { class: "cr-form" },
+        el("label", { class: "cr-f" }, el("span", { text: "Evento" }), tipo), fQuien, el("label", { class: "cr-f" }, el("span", { text: "Fecha" }), fe), el("label", { class: "cr-f" }, el("span", { text: "Versión" }), ve),
+        fPor, fProm, fEst, fOf, el("label", { class: "cr-f wide" }, el("span", { text: "Detalle" }), nt), fPl,
+        el("div", { class: "cr-go" }, btn, nota)));
+      sync();
+    }
+    // Bitácora vertical, lo más reciente arriba
+    if (K.ev.length) {
+      let prevA = "nos";
+      const rows = K.ev.map((e) => { const n = quedaCon(e, prevA), cambio = n !== prevA; prevA = n; const t = BIT_T[e.tipo] || BIT_T.nota;
+        return el("div", { class: "cr-ev", style: "--c:" + t[1] },
+          el("span", { class: "d", text: fmtD(e.f) }), el("span", { class: "dot" }, el("i", { text: t[2] })),
+          el("div", { class: "b" },
+            el("span", { class: "t", text: t[0] + (e.tipo === "rad" ? " a " + QUIEN[e.a][0] : e.tipo === "obs" || e.tipo === "apr" ? " de " + QUIEN[e.a][0] : "") + (e.tipo === "compromiso" ? " · para el " + fmtD(e.prom) : "") }),
+            el("span", { class: "meta" }, el("b", { text: e.v }), e.por ? el("span", { text: e.por }) : null, e.of ? el("span", { text: e.of }) : null, e.s ? el("span", { text: "→ " + EST_L[e.s] }) : null),
+            e.n ? el("span", { class: "n", text: e.n }) : null,
+            cambio && n !== "fin" ? el("span", { class: "hand", style: "--c:" + QUIEN[n][1], text: "→ queda en manos de " + QUIEN[n][0] }) : n === "fin" && cambio ? el("span", { class: "hand", style: "--c:var(--done)", text: "→ cerrado" }) : null),
+          ro ? null : el("button", { type: "button", class: "x", title: "Quitar este evento (no devuelve el estado)", "aria-label": "Quitar evento", text: "×", onclick: (ev) => { const b = ev.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "¿Quitar?"; return; } L.edit = x.r; saveLiq(c, x, { bit: (x.bit || []).filter((y) => y.id !== e.id) }); } }));
+      });
+      box.append(el("div", { class: "cr-sub", text: "Bitácora" }), el("div", { class: "cr-tl" }, rows.reverse()));
+    }
+    return box;
+  }
+  // Ventana con el gráfico: quién tuvo el documento (Gantt con compromisos) y días por versión
+  function cronoGrafico(c, x, K) {
+    const NS = "http://www.w3.org/2000/svg", t0 = todayISO();
+    const mkS = (svg, tg, at, tx) => { const n = document.createElementNS(NS, tg); for (const k in at) n.setAttribute(k, at[k]); if (tx != null) n.textContent = tx; svg.appendChild(n); return n; };
+    const tip = (n, t) => { const z = document.createElementNS(NS, "title"); z.textContent = t; n.appendChild(z); };
+    const addD = (d, n) => iso(addDays(parse(d), n));
+    const fechas = [K.ev[0].f, t0, ...K.cs.map((o) => o.c.prom)].sort(), a = addD(fechas[0], -4), b = addD(fechas[fechas.length - 1], 6), span = Math.max(1, daysBetween(a, b));
+    const quien = Object.keys(QUIEN).filter((k) => K.tr.some((t) => t.a === k));
+    const g = document.createElementNS(NS, "svg"), Lw = 120, W = Math.max(700, span * 6 + Lw + 20), RH = 42, TT = 24, H = TT + quien.length * RH + 8;
+    g.setAttribute("viewBox", "0 0 " + W + " " + H); g.style.minWidth = W + "px"; g.setAttribute("class", "cr-svg");
+    const X = (d) => Lw + (W - Lw - 20) * daysBetween(a, d) / span;
+    const meses = []; let m = parse(a); m = new Date(m.getFullYear(), m.getMonth() + 1, 1); while (m <= parse(b)) { meses.push(iso(m)); m = new Date(m.getFullYear(), m.getMonth() + 1, 1); }
+    meses.forEach((d) => { mkS(g, "line", { x1: X(d), x2: X(d), y1: TT - 6, y2: H - 4, stroke: "var(--line)" }); mkS(g, "text", { x: X(d) + 4, y: 13, "font-size": 11, fill: "var(--muted)" }, MESES[parse(d).getMonth()].slice(0, 3) + " " + parse(d).getFullYear()); });
+    quien.forEach((k, i) => { const y = TT + i * RH; mkS(g, "text", { x: 0, y: y + RH / 2 + 4, "font-size": 12, "font-weight": 600, fill: "var(--ink)" }, QUIEN[k][0].replace(" / nosotros", "")); mkS(g, "line", { x1: Lw, x2: W - 20, y1: y + RH, y2: y + RH, stroke: "var(--line)" }); });
+    K.tr.forEach((t) => { const i = quien.indexOf(t.a), y = TT + i * RH + 9, x1 = X(t.d), w = Math.max(4, X(t.h) - x1), dd = daysBetween(t.d, t.h);
+      tip(mkS(g, "rect", { x: x1, y, width: w, height: RH - 18, rx: 5, fill: QUIEN[t.a][1] }), QUIEN[t.a][0] + ": " + fmtD(t.d) + " a " + fmtD(t.h) + " (" + dd + " días) · " + t.v);
+      if (w > 56) mkS(g, "text", { x: x1 + 6, y: y + (RH - 18) / 2 + 4, "font-size": 11, "font-weight": 700, fill: "#0f1419" }, t.v + " · " + dd + " d"); });
+    const iN = quien.indexOf("nos");
+    if (iN >= 0) K.cs.forEach(({ c: cm, st }) => { const px = X(cm.prom), py = TT + iN * RH + RH / 2; tip(mkS(g, "path", { d: "M" + px + " " + (py - 9) + " L" + (px + 9) + " " + py + " L" + px + " " + (py + 9) + " L" + (px - 9) + " " + py + " Z", fill: CS[st][0], stroke: "var(--side)", "stroke-width": 2 }), "Compromiso " + cm.v + " para el " + fmtD(cm.prom) + " · " + CS[st][2]); });
+    mkS(g, "line", { x1: X(t0), x2: X(t0), y1: TT - 6, y2: H - 4, stroke: "var(--ink)", "stroke-dasharray": "4 4" }); mkS(g, "text", { x: X(t0) - 4, y: TT - 9, "font-size": 11, "text-anchor": "end", "font-weight": 600, fill: "var(--ink)" }, "Hoy");
+    // Días por versión
+    const vs = [...new Set(K.tr.map((t) => t.v))], tv = (v) => K.tr.filter((t) => t.v === v).reduce((s2, t) => s2 + daysBetween(t.d, t.h), 0), mx = Math.max(1, ...vs.map(tv));
+    const bars = document.createElementNS(NS, "svg"), BW = 700, BL = 44, BH = 26; bars.setAttribute("viewBox", "0 0 " + BW + " " + (vs.length * (BH + 8) + 4)); bars.setAttribute("class", "cr-svg");
+    vs.forEach((v, i) => { const y = 2 + i * (BH + 8); let px = BL; mkS(bars, "text", { x: 0, y: y + BH / 2 + 5, "font-size": 13, "font-weight": 700, fill: "var(--ink)" }, v);
+      const parts = {}; K.tr.filter((t) => t.v === v).forEach((t) => (parts[t.a] = (parts[t.a] || 0) + daysBetween(t.d, t.h)));
+      Object.entries(parts).forEach(([k, n]) => { if (n <= 0) return; const w = (BW - BL - 80) * n / mx; tip(mkS(bars, "rect", { x: px, y, width: Math.max(2, w - 2), height: BH, rx: 4, fill: QUIEN[k][1] }), QUIEN[k][0] + ": " + n + " días"); if (w > 40) mkS(bars, "text", { x: px + 6, y: y + BH / 2 + 4, "font-size": 11, "font-weight": 700, fill: "#0f1419" }, n + " d"); px += w; });
+      mkS(bars, "text", { x: px + 6, y: y + BH / 2 + 4, "font-size": 12, fill: "var(--muted)" }, tv(v) + " días"); });
+    const leg = el("div", { class: "cr-leg" }, quien.map((k) => el("span", null, el("i", { style: "background:" + QUIEN[k][1] }), QUIEN[k][0])), Object.values(CS).map(([col, , t]) => el("span", null, el("i", { style: "background:" + col + ";border-radius:1px;transform:rotate(45deg)" }), "Compromiso " + t.toLowerCase())));
+    const d = el("dialog", { class: "cr-dlg", "aria-label": "Gráfico de " + x.q },
+      el("div", { class: "cr-h" }, el("b", { text: "Quién lo tuvo y cuánto" }), el("button", { type: "button", class: "btn", "aria-label": "Cerrar", text: "✕", onclick: () => d.close() })),
+      el("small", { class: "muted", text: x.q + " · " + c.nombre }),
+      el("div", { class: "cr-scroll" }, g), leg, el("b", { style: "font-size:12.5px", text: "Días por versión" }), bars);
+    d.addEventListener("close", () => d.remove()); d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
+    document.body.append(d); d.showModal();
   }
   // Historial de radicaciones del requisito: fecha, a quién y número de oficio; se puede corregir y agregar las anteriores
   const RADS_ED = {};
@@ -2446,7 +2655,41 @@ window.startApp = () => {
   const SUPABASE_URL = "https://unfvthqaobkxhmitawvl.supabase.co";
   const SUPABASE_KEY = "sb_publishable_02rLX9sbBEqn6EeRsyX6oQ_p7GaBpO-";
   const TABLAS = ["agenda", "config", "liq", "liqmod", "outlook", "outlook_ajustes"];
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  // ---------- Sesión que no se pierde ----------
+  // La sesión se guarda en localStorage y además en una copia en IndexedDB. Si el navegador o la librería
+  // borran la de localStorage (al cambiar de pestaña, al cerrar, por un fallo de red al renovarla), se recupera
+  // de la copia. Solo «Cerrar sesión» borra las dos.
+  const idb = (() => {
+    let p = null;
+    const abrir = () => p || (p = new Promise((res, rej) => { try { const r = indexedDB.open("agenda-sesion", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }));
+    const op = (modo, fn) => abrir().then((db) => new Promise((res, rej) => { const t = db.transaction("kv", modo), q = fn(t.objectStore("kv")); t.oncomplete = () => res(q ? q.result : undefined); t.onerror = () => rej(t.error); })).catch(() => null);
+    return { get: (k) => op("readonly", (st) => st.get(k)), set: (k, v) => op("readwrite", (st) => st.put(v, k)), del: (k) => op("readwrite", (st) => st.delete(k)) };
+  })();
+  const ls = { get: (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} }, del: (k) => { try { localStorage.removeItem(k); } catch (_) {} } };
+  const CLAVE = "sb-unfvthqaobkxhmitawvl-auth-token"; // la clave por defecto de Supabase: las sesiones actuales siguen sirviendo
+  let saliendo = false; // true solo cuando la persona pulsa «Cerrar sesión»
+  const almacen = {
+    getItem: async (k) => { const v = ls.get(k); if (v != null) return v; const w = await idb.get(k); if (w != null) ls.set(k, w); return w == null ? null : w; },
+    setItem: async (k, v) => { ls.set(k, v); await idb.set(k, v); },
+    removeItem: async (k) => { ls.del(k); if (saliendo) await idb.del(k); }
+  };
+  // Registro del motivo cuando la sesión se cierra sola, para mostrarlo en la pantalla de ingreso
+  const anotarSalida = (motivo) => { const v = JSON.stringify({ t: new Date().toISOString(), motivo }); ls.set("agenda-salida", v); idb.set("agenda-salida", v); };
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (_) {}
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: almacen } });
+  const cerrarSesion = async () => { saliendo = true; ls.del("agenda-salida"); await idb.del("agenda-salida"); await sb.auth.signOut(); await idb.del(CLAVE); location.reload(); };
+  // Si la sesión no aparece, se intenta con la copia de respaldo
+  async function recuperarSesion() {
+    const crudo = await idb.get(CLAVE);
+    if (!crudo) return null;
+    try {
+      const s = JSON.parse(crudo); const ses = s.currentSession || s;
+      if (!ses || !ses.refresh_token) return null;
+      const r = await sb.auth.setSession({ access_token: ses.access_token, refresh_token: ses.refresh_token });
+      if (r.error) { anotarSalida("la copia de la sesión ya no es válida (" + r.error.message + ")"); await idb.del(CLAVE); return null; }
+      return r.data.session;
+    } catch (e) { return null; }
+  }
   const $ = (id) => document.getElementById(id);
   let yo = null; // { email, rol, nombre }
   let miembros = [];
@@ -2615,16 +2858,18 @@ window.startApp = () => {
     msg(""); arrancar(r.data.session);
   });
   $("lg-back").onclick = () => { paso(1); msg(""); };
-  $("lg-out").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  $("lg-out").onclick = cerrarSesion;
 
   // Recordar el correo y detectar por qué el navegador pide entrar otra vez
   const guardar = (() => { try { localStorage.setItem("agenda-prueba", "1"); localStorage.removeItem("agenda-prueba"); return true; } catch (_) { return false; } })();
   const recordado = (() => { try { return localStorage.getItem("agenda-correo") || ""; } catch (_) { return ""; } })();
-  function pedirIngreso() {
+  async function pedirIngreso() {
     paso(1); $("login").hidden = false;
+    let sal = null; try { sal = JSON.parse(ls.get("agenda-salida") || (await idb.get("agenda-salida")) || "null"); } catch (_) {}
     if (recordado) { $("lg-email").value = recordado; setTimeout(() => $("lg-pass").focus(), 50); }
     if (!guardar) msg("Este navegador no está guardando datos del sitio (modo incógnito o protección de privacidad), por eso pide entrar cada vez. Ábrelo en una ventana normal o permite los datos de lucho1906.github.io.", true);
-    else if (recordado) msg("Tu sesión anterior se cerró. Si pasa cada vez que recargas, revisa que el navegador no borre los datos del sitio al cerrar y que no estés en modo incógnito.");
+    else if (sal) msg("Tu sesión se cerró sola el " + new Date(sal.t).toLocaleString("es-CO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) + ". Motivo: " + sal.motivo + ". Si se repite, envíale una foto de este mensaje al coordinador.");
+    else if (recordado) msg("El navegador borró la sesión guardada (pasa si borra los datos del sitio al cerrar o en modo incógnito). Entra de nuevo; si se repite, envíale una foto de este mensaje al coordinador.");
   }
   let arrancado = false;
   async function arrancar(session) {
@@ -2632,6 +2877,7 @@ window.startApp = () => {
     arrancado = true;
     const email = (session.user.email || "").toLowerCase();
     try { localStorage.setItem("agenda-correo", email); } catch (_) {}
+    ls.del("agenda-salida"); idb.del("agenda-salida");
     try { sb.realtime.setAuth(session.access_token); } catch (_) {}
     const r = await sb.from("miembros").select("email,rol,nombre");
     if (r.error) aviso(r.error, "miembros");
@@ -2644,19 +2890,26 @@ window.startApp = () => {
     sincronizarOutlook(false);
     setInterval(() => sincronizarOutlook(false), 10 * 60 * 1000);
   }
-  sb.auth.getSession().then(({ data }) => { if (data.session) arrancar(data.session); else pedirIngreso(); });
-  sb.auth.onAuthStateChange((ev, session) => { if (ev === "SIGNED_IN" && session) arrancar(session); });
+  sb.auth.getSession().then(async ({ data }) => { const ses = data.session || (await recuperarSesion()); if (ses) arrancar(ses); else pedirIngreso(); });
+  sb.auth.onAuthStateChange(async (ev, session) => {
+    if (ev === "SIGNED_IN" && session) arrancar(session);
+    // Se cerró sin que la persona lo pidiera: se intenta recuperar con la copia y, si no se puede, queda anotado el motivo
+    if (ev === "SIGNED_OUT" && !saliendo) {
+      const ses = await recuperarSesion();
+      if (!ses) { anotarSalida(document.hidden ? "se cerró mientras la pestaña estaba en segundo plano" : "la renovación de la sesión falló"); if (arrancado) location.reload(); }
+    }
+  });
 
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 18/11 12:13";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 18/11 22:37";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
     foot.append(pw);
     const out = document.createElement("button"); out.type = "button"; out.className = "btn"; out.textContent = "Cerrar sesión";
-    out.onclick = async () => { await sb.auth.signOut(); location.reload(); };
+    out.onclick = cerrarSesion;
     if (yo.rol === "coordinador") { const acc = document.createElement("button"); acc.type = "button"; acc.className = "btn"; acc.textContent = "Accesos"; acc.onclick = abrirAccesos; foot.append(acc); }
     foot.append(out, who);
   }
