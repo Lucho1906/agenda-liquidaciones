@@ -618,18 +618,6 @@ select.est { -webkit-appearance: none; appearance: none; border: 1px solid color
   .bnav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .bnav button { font-size: 9.5px; }
 }
-/* TEMA-AMARILLO (prueba de publicación 18/11/2026). Para volver al tema original, borrar este bloque completo. */
-@media screen {
-  :root {
-    --bg: #ffe94d; --side: #ffd60a; --card: #fff3a3; --card2: #ffec80; --line: #d9b300; --grid: #f2d43a;
-    --ink: #1a1600; --muted: #5c4d00; --accent: #1a1600; --accent-ink: #ffe94d;
-    color-scheme: light;
-  }
-  .dh.today, .mc.today { background: #ffd60a; }
-  .dcol.wkend { background: #fbe26a; }
-  .dcol.today { background: #fff08a; }
-}
-/* FIN TEMA-AMARILLO */
 </style>
 <style>
 html { padding-top: env(safe-area-inset-top, 0px); }
@@ -2915,7 +2903,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 18/11 23:57";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 18/11 23:58";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
