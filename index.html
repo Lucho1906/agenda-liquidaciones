@@ -1969,7 +1969,16 @@ window.startApp = () => {
     const out = [];
     const pushExtras = (row, depth) => { if (depth > 20) return; extras.filter((m) => m.despues === row).sort((a, b) => (a.n === "p") - (b.n === "p")).forEach((m) => { out.push(Object.assign({ r: m.row, n: m.n || "e", et: m.et || "", a: m.a || "", s: "EN PROCESO", nuevo: true }, pickMod(m))); pushExtras(m.row, depth + 1); }); };
     base.forEach((it) => { const m = byRow[it.r]; out.push(m ? Object.assign({}, it, pickMod(m)) : it); pushExtras(it.r, 0); });
-    return out.filter((x) => !x.eliminado);
+    return plazoFoin(out.filter((x) => !x.eliminado));
+  }
+  // Solo los FOIN: si el requisito principal tiene entregables, su plazo es el más tardío de ellos y no se edita a mano.
+  // Sin fechas en los entregables, se mantiene el plazo propio del principal. El plazo propio queda guardado en plPropio.
+  const esFoin = (x) => x.n === "p" && /^\s*FOIN\b/i.test(x.q || "");
+  function plazoFoin(its) {
+    if (!its.some(esFoin)) return its;
+    const hk = {}, mx = {};
+    annotate(its).forEach((y) => { if (y.n !== "e" || !y.p || y.oculto) return; hk[y.p] = true; if (y.pl && (!mx[y.p] || y.pl > mx[y.p])) mx[y.p] = y.pl; });
+    return its.map((x) => esFoin(x) && hk[x.r] ? Object.assign({}, x, { plPropio: x.pl || "", pl: mx[x.r] || x.pl || "", plAuto: true }) : x);
   }
   function annotate(items0) {
     // En algunas listas los entregables aparecen antes de su requisito principal: se ubican debajo de él.
@@ -2017,7 +2026,7 @@ window.startApp = () => {
   // Cambio masivo: el mismo plazo para todos los requisitos abiertos de un grupo
   function plazoGrupo(c, g, items) {
     const abiertos = items.filter((y) => y.g === g.r && (y.n === "p" || y.n === "e") && !y.oculto && !cerrado(y.s));
-    const ps = abiertos.filter((y) => y.n === "p"), es = abiertos.filter((y) => y.n === "e");
+    const ps = abiertos.filter((y) => y.n === "p" && !y.plAuto), es = abiertos.filter((y) => y.n === "e");
     const fecha = el("input", { type: "date", id: "gpl-fecha", value: L.gplF || "", "aria-label": "Plazo para el grupo " + g.q, oninput: (e) => (L.gplF = e.target.value) });
     const conE = el("input", { type: "checkbox", id: "gpl-ent", checked: !!L.gplE, onchange: (e) => (L.gplE = e.target.checked) });
     const btn = el("button", { type: "button", class: "btn primary" });
@@ -2111,7 +2120,7 @@ window.startApp = () => {
   async function saveLiq(c, x, patch, silencioso, sinArrastre) {
     if (S.readOnly || !S.db) return;
     const key = c.id + "__" + x.r, prev = S.liqmod[key] || {};
-    const data = Object.assign({ cid: c.id, row: x.r, s: x.s || "", pl: x.pl || "", rp: x.rp || "", ri: x.ri || "", o: x.o || "", oculto: !!x.oculto },
+    const data = Object.assign({ cid: c.id, row: x.r, s: x.s || "", pl: (x.plAuto ? x.plPropio : x.pl) || "", rp: x.rp || "", ri: x.ri || "", o: x.o || "", oculto: !!x.oculto },
       x.nuevo ? { nuevo: true, despues: prev.despues || "", n: x.n, et: x.et || "", a: x.a || "", q: x.q, creada: prev.creada || prev.t || "" } : {}, patch, { t: new Date().toISOString(), uid: S.uid || "" });
     data.rads = patch.rads || conEvento(x.rads || prev.rads, x.s, patch.s);
     const bit = patch.bit || x.bit || prev.bit; if (bit && bit.length) data.bit = bit; else delete data.bit;
@@ -2343,7 +2352,7 @@ window.startApp = () => {
         el("div", { class: "lq-m" }, ctx ? el("span", { class: "ctx-tag", text: "contexto: no cumple el filtro, sus entregables sí" }) : null, x.n === "e" && (S.liqmod[c.id + "__" + x.r] || {}).excepcion ? el("span", { class: "ctx-tag", title: "Lo dejaste a mano por detrás del requisito principal; los cambios del principal no lo mueven", text: "excepción: no sigue al principal" }) : null, x.a ? el("span", { class: "tag", text: x.a }) : null,
           kd && kd.length ? el("button", { type: "button", class: "lq-tog", onclick: () => { L.open[x.r] = !open; renderLiq(); } }, (open ? "Ocultar entregables" : "Ver entregables") + " · " + kd.filter((k) => cerrado(k.s)).length + "/" + kd.length + " cerrados" + (filtering && kids.filter((k) => liqFilterMatch(k)).length !== kd.length ? " · " + kids.filter((k) => liqFilterMatch(k)).length + " coinciden" : "")) : null,
           x.rp ? el("span", { text: x.rp }) : null,
-          x.pl ? el("span", { class: late ? "late" : "", text: (late ? "Venció " : "Plazo ") + fmtD(x.pl) }) : (x.plt ? el("span", { text: x.plt }) : null),
+          x.pl ? el("span", { class: late ? "late" : "", title: x.plAuto ? "Plazo automático: el más tardío de sus entregables" : null, text: (late ? "Venció " : "Plazo ") + fmtD(x.pl) + (x.plAuto ? " (de sus entregables)" : "") }) : (x.plt ? el("span", { text: x.plt }) : null),
           nRad(x) ? el("span", { class: "rad-tag", title: (x.rads || []).map((e, i) => (EV_L[e.tipo]) + " · " + (EST_L[e.s] || e.s) + " · " + fmtDY(e.f) + (e.n ? " · " + e.n : "")).join("\n"), text: (nRad(x) === 1 ? "Radicado " : nRad(x) + " radicaciones · última ") + fmtD(ultRad(x)) }) : null,
           ...(cronoTag(x) || []),
           x.oculto ? el("span", { text: "No aplica" }) : null,
@@ -2361,11 +2370,11 @@ window.startApp = () => {
   }
   function liqEditor(c, x) {
     const ro = S.readOnly;
-    const pl = el("input", { type: "date", value: x.pl || "", disabled: ro }), rp = el("input", { value: x.rp || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Oscar" }), ri = el("input", { value: x.ri || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Luis Villegas" });
+    const pl = el("input", { type: "date", value: x.pl || "", disabled: ro || !!x.plAuto, title: x.plAuto ? "Automático: el plazo más tardío de sus entregables. Cámbialo en los entregables." : null }), rp = el("input", { value: x.rp || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Oscar" }), ri = el("input", { value: x.ri || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Luis Villegas" });
     const o = el("textarea", { maxlength: "2000", disabled: ro, placeholder: "Qué pasó, qué falta, a quién se le envió…" }); o.value = x.o || "";
     return el("div", { class: "lq-ed" },
       cronoPanel(c, x),
-      el("div", { class: "field" }, el("label", { text: "Plazo de entrega" }), pl),
+      el("div", { class: "field" }, el("label", { text: x.plAuto ? "Plazo de entrega · automático (el más tardío de sus entregables)" : "Plazo de entrega" }), pl),
       el("div", { class: "field" }, el("label", { text: "Responsable" }), rp),
       el("div", { class: "field" }, el("label", { text: "Responsable interno" }), ri),
       el("div", { class: "field full" }, el("label", { text: "Observaciones" }), o),
@@ -2376,7 +2385,7 @@ window.startApp = () => {
           x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar requisito principal", title: "Se agrega debajo de este requisito y sus entregables", onclick: () => { L.addP = x.r; L.add = null; L.open[x.r] = false; L.edit = null; renderLiq(); } }) : null,
           el("button", { type: "button", class: "btn danger", disabled: ro, text: "Eliminar", title: x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } L.sucio = false; delLiqItem(c, x); } })),
         el("div", null, el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.edit = null; renderLiq(); } }),
-          el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; L.sucio = false; saveLiq(c, x, { pl: pl.value, rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim(), rads: radsEditados(x) }); } }))));
+          el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; L.sucio = false; saveLiq(c, x, { ...(x.plAuto ? {} : { pl: pl.value }), rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim(), rads: radsEditados(x) }); } }))));
   }
   // ---------- Cronología del requisito: bitácora, compromisos y versiones ----------
   // Cada evento: { id, f, tipo: compromiso|rad|obs|apr|nota, a: int|idu|esp|nos (con quién), v, of, n, prom, s (estado que dejó), por, t }
@@ -2447,7 +2456,7 @@ window.startApp = () => {
       const fe = el("input", { type: "date", value: t0, "aria-label": "Fecha del evento" });
       const ve = el("select", { "aria-label": "Versión" }, VERS.map((v) => el("option", { value: v, text: v, selected: v === sugV })));
       const prom = el("input", { type: "date", "aria-label": "Fecha prometida" });
-      const usarPl = el("input", { type: "checkbox", checked: true });
+      const usarPl = el("input", { type: "checkbox", checked: !x.plAuto, disabled: !!x.plAuto });
       const por = el("input", { maxlength: "60", placeholder: x.rp || "Quién lo dijo", value: x.rp || "" });
       const of = el("input", { maxlength: "80", placeholder: "N.º de oficio o radicado (opcional)" });
       const nt = el("input", { maxlength: "400", placeholder: "Detalle: qué dijo, cuántas observaciones, qué falta…" });
@@ -2482,7 +2491,7 @@ window.startApp = () => {
         const ns = fEst.hidden ? "" : est.value; if (ns) e.s = ns;
         const patch = { bit: (x.bit || []).concat(e) };
         if (ns && ns !== x.s) { patch.s = ns; patch.rads = (x.rads || []).concat({ tipo: tipoEv(ns), s: ns, f: e.f, n: e.of }); }
-        if (tp === "compromiso" && usarPl.checked) patch.pl = prom.value;
+        if (tp === "compromiso" && usarPl.checked && !x.plAuto) patch.pl = prom.value;
         btn.disabled = true; btn.textContent = "Guardando…";
         L.edit = x.r; await saveLiq(c, x, patch); renderLiq();
       };
@@ -2920,7 +2929,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 19/11 11:34";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 19/11 11:43";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
