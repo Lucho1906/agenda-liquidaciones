@@ -590,6 +590,8 @@ select.est { -webkit-appearance: none; appearance: none; border: 1px solid color
 .cr-ev .n { color: var(--muted); }
 .cr-ev .hand { font-size: 12px; font-weight: 600; color: var(--c); }
 .cr-ev .x { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 14px; align-self: start; padding: 0 4px; }
+.cr-ev .acc { display: flex; align-items: flex-start; gap: 2px; }
+.cr-ev .x:hover { color: var(--ink); }
 .cr-ev .x.armed { color: var(--late); font-size: 12px; font-weight: 600; }
 .cr-tag { color: var(--c); font-weight: 600; }
 .cr-dlg { width: min(780px, calc(100vw - 24px)); padding: 16px; }
@@ -2135,6 +2137,7 @@ window.startApp = () => {
     if (patch.oculto != null && patch.oculto !== !!x.oculto) parts.push(patch.oculto ? "marcado como no aplica" : "vuelve a aplicar");
     if (patch.bit && patch.bit.length > (x.bit || []).length) { const e = patch.bit[patch.bit.length - 1]; parts.push("bitácora: " + bitTexto(e)); }
     else if (patch.bit && patch.bit.length < (x.bit || []).length) parts.push("bitácora: quitó un evento");
+    else if (patch.bit) { const ed = patch.bit.find((e, i) => JSON.stringify(e) !== JSON.stringify((x.bit || [])[i])); if (ed) parts.push("bitácora: editó un evento → " + bitTexto(ed)); }
     try {
       await S.db.doc("liqmod/" + key).set(data);
       if (parts.length > 1) log("liq", { tipo: "liq", titulo: x.q, id: key }, parts.join(" · "));
@@ -2451,6 +2454,7 @@ window.startApp = () => {
           el("small", { class: "st", text: st === "ok" ? "Cumplido: " + fmtD(r.f) : st === "tarde" ? "Tarde: " + fmtD(r.f) + " (" + daysBetween(cm.prom, r.f) + " d)" : st === "inc" ? "Incumplido hace " + daysBetween(cm.prom, t0) + " d" : "Faltan " + daysBetween(t0, cm.prom) + " d" })))));
     }
     // Formulario para agregar un evento; guarda al momento y mueve el estado del requisito (y sus entregables)
+    let cargar = () => {};
     if (!ro) {
       const tipo = el("select", { "aria-label": "Tipo de evento" }, Object.entries(BIT_T).map(([k, v]) => el("option", { value: k, text: v[0], selected: k === "rad" })));
       const quien = el("select", { "aria-label": "A o de quién" }, ["int", "idu", "esp", "nos"].map((k) => el("option", { value: k, text: QUIEN[k][0] })));
@@ -2466,6 +2470,7 @@ window.startApp = () => {
       const fPl = el("label", { class: "cr-chk" }, usarPl, " Usarla como plazo del requisito"), fPor = el("label", { class: "cr-f" }, el("span", { text: "Quién se compromete" }), por);
       const fEst = el("label", { class: "cr-f" }, el("span", { text: "Estado que queda" }), est), fOf = el("label", { class: "cr-f" }, el("span", { text: "Oficio" }), of);
       const nota = el("small", { class: "muted cr-nota" });
+      let editId = null; const NOTA_ED = "Editando un evento ya registrado: «Guardar cambios» corrige la bitácora, pero no cambia el estado del requisito.";
       const sync = () => {
         const tp = tipo.value, compromiso = tp === "compromiso";
         nota.classList.remove("cr-warn");
@@ -2476,15 +2481,34 @@ window.startApp = () => {
         const nk = x.n === "p" ? annotate(liqItems(c.id)).filter((y) => y.n === "e" && y.p === x.r && !y.oculto).length : 0;
         nota.textContent = !est.value || fEst.hidden ? (compromiso ? "Queda vigilado: si llega la fecha sin radicación, sale como incumplido" + (usarPl.checked ? ", y esa fecha queda como plazo del requisito (sale en la agenda)." : ".") : "") :
           "Al guardar, el requisito pasa a «" + EST_L[est.value] + "»" + (nk ? (EST.indexOf(est.value) < EST.indexOf(x.s) ? " y sus entregables que van delante bajan con él." : " y sus " + nk + " entregables que van atrás suben con él (salvo excepciones).") : ".");
+        if (editId) { fEst.hidden = true; nota.textContent = NOTA_ED; }
       };
-      tipo.addEventListener("change", () => { sync(); nota.classList.remove("cr-warn"); btn.classList.remove("armed"); btn.textContent = "Agregar a la bitácora"; }); usarPl.addEventListener("change", sync); quien.addEventListener("change", sync); est.addEventListener("change", () => { const keep = est.value; sync(); est.value = keep; avisoEst(); });
+      tipo.addEventListener("change", () => { sync(); nota.classList.remove("cr-warn"); btn.classList.remove("armed"); btn.textContent = editId ? "Guardar cambios" : "Agregar a la bitácora"; }); usarPl.addEventListener("change", sync); quien.addEventListener("change", sync); est.addEventListener("change", () => { const keep = est.value; sync(); est.value = keep; avisoEst(); });
       const raro = () => { const sug = estadoDe(tipo.value, quien.value); return !fEst.hidden && sug && est.value && est.value !== sug ? sug : ""; };
       const avisoEst = () => { const sug = raro(); btn.classList.remove("armed"); btn.textContent = "Agregar a la bitácora"; nota.classList.toggle("cr-warn", !!sug);
         nota.textContent = sug ? "⚠ Ojo: una «" + BIT_T[tipo.value][0] + "» de " + QUIEN[quien.value][0] + " normalmente deja el requisito en «" + EST_L[sug] + "», y elegiste «" + EST_L[est.value] + "». Revisa el tipo de evento." : est.value ? "Al guardar, el requisito pasa a «" + EST_L[est.value] + "»." : "El estado no cambia."; };
       const btn = el("button", { type: "button", class: "btn primary", text: "Agregar a la bitácora" });
+      const cancelEd = el("button", { type: "button", class: "btn", text: "Cancelar edición", hidden: true });
+      const limpiar = () => { editId = null; tipo.value = "rad"; fe.value = t0; of.value = ""; nt.value = ""; prom.value = ""; por.value = x.rp || ""; usarPl.checked = !x.plAuto; btn.textContent = "Agregar a la bitácora"; btn.classList.remove("armed"); cancelEd.hidden = true; sync(); };
+      cancelEd.onclick = limpiar;
+      // Lápiz de la bitácora: carga el evento en el formulario para corregirlo
+      cargar = (e) => { editId = null; tipo.value = BIT_T[e.tipo] ? e.tipo : "nota"; sync(); if (!fQuien.hidden && e.a) quien.value = e.a;
+        fe.value = e.f || ""; of.value = e.of || ""; nt.value = e.n || ""; prom.value = e.prom || ""; por.value = e.por || ""; usarPl.checked = false;
+        editId = e.id; sync(); ve.value = e.v || "v1"; btn.textContent = "Guardar cambios"; btn.classList.remove("armed"); cancelEd.hidden = false;
+        const f = box.querySelector(".cr-form"); if (f) f.scrollIntoView({ block: "center", behavior: "smooth" }); tipo.focus(); };
       btn.onclick = async () => {
         const tp = tipo.value;
         if (!fe.value) { toast("Pon la fecha del evento"); return; }
+        if (editId) {
+          if (tp === "compromiso" && !prom.value) { toast("Pon la fecha prometida"); return; }
+          const old = (x.bit || []).find((y) => y.id === editId); if (!old) { limpiar(); return; }
+          const ne = Object.assign({}, old, { f: fe.value, tipo: tp, a: tp === "compromiso" || tp === "nota" ? "nos" : quien.value, v: ve.value, of: of.value.trim(), n: nt.value.trim(), ed: new Date().toISOString() });
+          if (tp === "compromiso") { ne.prom = prom.value; ne.por = por.value.trim(); } else { delete ne.prom; delete ne.por; }
+          const patch = { bit: (x.bit || []).map((y) => (y.id === editId ? ne : y)) };
+          if (tp === "compromiso" && usarPl.checked && !x.plAuto) patch.pl = prom.value;
+          btn.disabled = true; btn.textContent = "Guardando…";
+          L.edit = x.r; await saveLiq(c, x, patch); renderLiq(); return;
+        }
         if (raro() && !btn.classList.contains("armed")) { btn.classList.add("armed"); btn.textContent = "¿Guardar así de todos modos?"; return; }
         if (tp === "compromiso" && !prom.value) { toast("Pon la fecha prometida"); return; }
         const e = { id: Date.now().toString(36), f: fe.value, tipo: tp, a: tp === "compromiso" || tp === "nota" ? "nos" : quien.value, v: ve.value, of: of.value.trim(), n: nt.value.trim(), t: new Date().toISOString() };
@@ -2499,7 +2523,7 @@ window.startApp = () => {
       box.append(el("div", { class: "cr-form" },
         el("label", { class: "cr-f" }, el("span", { text: "Evento" }), tipo), fQuien, el("label", { class: "cr-f" }, el("span", { text: "Fecha" }), fe), el("label", { class: "cr-f" }, el("span", { text: "Versión" }), ve),
         fPor, fProm, fEst, fOf, el("label", { class: "cr-f wide" }, el("span", { text: "Detalle" }), nt), fPl,
-        el("div", { class: "cr-go" }, btn, nota)));
+        el("div", { class: "cr-go" }, btn, cancelEd, nota)));
       sync();
     }
     // Bitácora vertical, lo más reciente arriba
@@ -2513,7 +2537,7 @@ window.startApp = () => {
             el("span", { class: "meta" }, el("b", { text: e.v }), e.por ? el("span", { text: e.por }) : null, e.of ? el("span", { text: e.of }) : null, e.s ? el("span", { text: "→ " + EST_L[e.s] }) : null),
             e.n ? el("span", { class: "n", text: e.n }) : null,
             cambio && n !== "fin" ? el("span", { class: "hand", style: "--c:" + QUIEN[n][1], text: "→ queda en manos de " + QUIEN[n][0] }) : n === "fin" && cambio ? el("span", { class: "hand", style: "--c:var(--done)", text: "→ cerrado" }) : null),
-          ro ? null : el("button", { type: "button", class: "x", title: "Quitar este evento (no devuelve el estado)", "aria-label": "Quitar evento", text: "×", onclick: (ev) => { const b = ev.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "¿Quitar?"; return; } L.edit = x.r; L.sucio = false; saveLiq(c, x, { bit: (x.bit || []).filter((y) => y.id !== e.id) }); } }));
+          ro ? null : el("span", { class: "acc" }, el("button", { type: "button", class: "x", title: "Editar este evento", "aria-label": "Editar evento", text: "✎", onclick: () => cargar(e) }), el("button", { type: "button", class: "x", title: "Quitar este evento (no devuelve el estado)", "aria-label": "Quitar evento", text: "×", onclick: (ev) => { const b = ev.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = "¿Quitar?"; return; } L.edit = x.r; L.sucio = false; saveLiq(c, x, { bit: (x.bit || []).filter((y) => y.id !== e.id) }); } })));
       });
       box.append(el("div", { class: "cr-sub", text: "Bitácora" }), el("div", { class: "cr-tl" }, rows.reverse()));
     }
@@ -2930,7 +2954,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 19/11 13:47";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 20/11 12:12";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
