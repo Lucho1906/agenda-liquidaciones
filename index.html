@@ -571,6 +571,35 @@ select.est { -webkit-appearance: none; appearance: none; border: 1px solid color
 .cr-f.wide { grid-column: 1 / -1; }
 .cr-f[hidden], .cr-chk[hidden] { display: none; }
 .cr-chk { display: flex; align-items: center; gap: 6px; font-size: 12.5px; grid-column: 1 / -1; }
+.co-wrap { display: flex; flex-direction: column; gap: 12px; max-width: 1100px; }
+.co-modo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 10px; padding: 10px 14px; }
+.co-modo.on { border-left-color: var(--done); }
+.co-modo > div { flex: 1; min-width: 240px; }
+.co-pr { font-weight: 700; font-variant-numeric: tabular-nums; }
+.co-modo .btn.armed { border-color: var(--warn); color: var(--warn); }
+.co-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; }
+.co-h { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.co-tag { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 600; }
+.co-tag.urg { color: var(--late); border-color: var(--late); }
+.co-tag.ok { color: var(--done); border-color: var(--done); }
+.co-tag.med { color: var(--warn); border-color: var(--warn); }
+.co-tag.st-aplicada, .co-tag.st-acierto { background: var(--done); color: var(--bg); border-color: var(--done); }
+.co-tag.st-descartada, .co-tag.st-error { background: var(--late); color: var(--bg); border-color: var(--late); }
+.co-tag.st-corregida { background: var(--warn); color: var(--bg); border-color: var(--warn); }
+.co-b { display: grid; gap: 4px; min-width: 0; }
+.co-res { font-size: 14px; }
+.co-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; }
+.co-meta .late { color: var(--late); font-weight: 600; }
+.co-det { font-size: 12.5px; }
+.co-ev blockquote { margin: 4px 0 0; padding: 4px 10px; border-left: 3px solid var(--accent); background: var(--card2); border-radius: 0 6px 6px 0; font-size: 12.5px; overflow-wrap: anywhere; }
+.co-src, .co-sen { font-size: 12px; overflow-wrap: anywhere; }
+.co-src a { color: var(--accent); font-weight: 600; }
+.co-fix { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(0, 2fr); gap: 8px; }
+.co-fix label { display: grid; gap: 2px; font-size: 11px; color: var(--muted); min-width: 0; }
+.co-fix select { min-width: 0; width: 100%; background: var(--card2); border: 1px solid var(--line); border-radius: 7px; padding: 6px; }
+.co-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.co-acts input { flex: 1; min-width: 200px; background: var(--card2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; }
+@media (max-width: 700px) { .co-fix { grid-template-columns: minmax(0, 1fr); } }
 .cr-nota.cr-warn { color: var(--warn); font-weight: 600; }
 .lq-pend { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-weight: 600; }
 .rad-det > summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 4px 0; }
@@ -753,6 +782,7 @@ img { max-width: 100%; }
       <span><span style="width: 12px; text-align: center; color: #fb923c; font-weight: 700;">↷</span>No se cumplió: pasó al día siguiente</span>
     </div>
     <div class="side-foot">
+      <button class="btn" type="button" data-view="correo" id="btn-correo" hidden>Del correo</button>
       <button class="btn" type="button" data-view="informes" hidden>Informes (solo tú)</button>
       <button class="btn" id="btn-team" type="button">Nombres del equipo</button>
       <button class="btn" id="btn-csv" type="button">Exportar a Excel (CSV)</button>
@@ -790,6 +820,7 @@ img { max-width: 100%; }
     <section id="v-historial" aria-label="Pendientes e historial" hidden></section>
     <section id="v-liq" aria-label="Liquidaciones" hidden></section>
     <section id="v-informes" aria-label="Informes" hidden></section>
+    <section id="v-correo" aria-label="Del correo" hidden></section>
   </main>
 </div>
 
@@ -1102,13 +1133,14 @@ window.startApp = () => {
     else if (S.view === "liq") { const c = L.sel && S.contracts.find((x) => x.id === L.sel); $("eyebrow").textContent = c ? "Liquidaciones · " + c.codigo : "Control de contratos"; $("title").textContent = c ? c.nombre : "Liquidaciones"; }
     else { $("eyebrow").textContent = "Seguimiento"; $("title").textContent = S.isOwner ? "Pendientes e historial" : "Pendientes"; }
     if (S.view === "informes") { $("eyebrow").textContent = "Solo para el coordinador"; $("title").textContent = "Informes"; }
-    ["prev","today","next"].forEach((id) => ($(id).hidden = S.view === "historial" || S.view === "liq" || S.view === "informes"));
+    if (S.view === "correo") { $("eyebrow").textContent = "Asistente de correo"; $("title").textContent = "Del correo"; }
+    ["prev","today","next"].forEach((id) => ($(id).hidden = S.view === "historial" || S.view === "liq" || S.view === "informes" || S.view === "correo"));
     document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === S.view)));
   }
 
   function renderView() {
-    $("v-agenda").hidden = S.view !== "agenda"; $("v-semana").hidden = S.view !== "semana"; $("v-mes").hidden = S.view !== "mes"; $("v-historial").hidden = S.view !== "historial"; $("v-liq").hidden = S.view !== "liq"; $("v-informes").hidden = S.view !== "informes";
-    if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") { if (liqOcupado()) liqAvisoPend(); else renderLiq(); } else if (S.view === "informes") renderInformes(); else renderHist();
+    $("v-agenda").hidden = S.view !== "agenda"; $("v-semana").hidden = S.view !== "semana"; $("v-mes").hidden = S.view !== "mes"; $("v-historial").hidden = S.view !== "historial"; $("v-liq").hidden = S.view !== "liq"; $("v-informes").hidden = S.view !== "informes"; $("v-correo").hidden = S.view !== "correo";
+    if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") { if (liqOcupado()) liqAvisoPend(); else renderLiq(); } else if (S.view === "informes") renderInformes(); else if (S.view === "correo") { if (!correoOcupado()) renderCorreo(); } else renderHist();
   }
   // Mientras alguien escribe en el panel de un requisito (o en «agregar»), los datos que llegan solos no repintan la vista: se esperan a Guardar/Cancelar
   function liqOcupado() { const v = $("v-liq"); return !!(L.sucio && v && !v.hidden && v.querySelector(".lq-ed, .lq-add")); }
@@ -1872,6 +1904,8 @@ window.startApp = () => {
     const timer = setTimeout(() => { if (!S.loaded) setStatus("La conexión está tardando…"); }, 10000);
     db.doc("config/contratos").onSnapshot((s) => { const d = s.exists ? s.data() : null; S.contracts = (d && Array.isArray(d.lista)) ? d.lista.filter((c) => c && c.id) : []; mergeOl(); render(); renderQuick(); }, () => {});
     db.doc("config/equipo").onSnapshot((s) => { const d = s.exists ? s.data() : null; if (d) { S.people = { p1: d.p1 || "Coordinador", p2: d.p2 || "Ingeniera" }; render(); } }, () => {});
+    db.doc("config/asistente").onSnapshot((s) => { S.asis = (s.exists && s.data()) || { activa: false }; if (S.view === "correo" && !puedeCorreo()) S.view = "agenda"; applyRole(); if (S.loaded) render(); }, () => {});
+    db.collection("propuestas").onSnapshot((snap) => { S.propOk = true; S.prop = snap.docs.map((d) => Object.assign({}, d.data(), { id: d.id })); applyRole(); if (S.loaded && S.view === "correo") renderView(); }, () => { S.propOk = false; });
     db.collection("outlook").limit(5000).onSnapshot((snap) => { S.ol = snap.docs.map((d) => ({ id: d.id, e: d.data() })); mergeOl(); if (S.loaded) render(); }, () => {});
     db.collection("outlook_ajustes").limit(5000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.olaj = o; mergeOl(); if (S.loaded) render(); }, () => {});
     db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.base = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); mergeOl(); S.loaded = true; setStatus(); render(); sembrarRevision(); arrastrarTareas(); },
@@ -1892,10 +1926,12 @@ window.startApp = () => {
     const seg = document.querySelector('.seg [data-view="historial"]'); if (seg) seg.textContent = S.isOwner ? "Pendientes e historial" : "Pendientes";
     $("btn-team").hidden = !S.isOwner; $("btn-contracts").hidden = !S.isOwner;
     document.querySelectorAll('[data-view="informes"]').forEach((b) => (b.hidden = !S.isOwner));
+    { const bc = $("btn-correo"), n = (S.prop || []).filter((p) => (p.estado || "nueva") === "nueva").length; bc.hidden = !puedeCorreo(); bc.textContent = "Del correo" + (n ? " (" + n + ")" : "") + (S.asis && S.asis.activa ? "" : " · marcha blanca"); }
     renderSideCounts();
   }
   function setView(v) {
     if (v === "informes" && !S.isOwner) v = "agenda";
+    if (v === "correo" && !puedeCorreo()) v = "agenda";
     document.body.classList.remove("drawer"); S.view = v; S.miniMonth = null; render(); }
   function shift(dir) { const c = S.cursor; S.cursor = S.view === "mes" ? new Date(c.getFullYear(), c.getMonth() + dir, 1) : addDays(c, (S.view === "agenda" ? 1 : 7) * dir); S.miniMonth = null; render(); }
   document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
@@ -1962,7 +1998,7 @@ window.startApp = () => {
     const cur = steps.find(([, d]) => d >= t0) || null;
     return { steps, cur, days: cur ? daysBetween(t0, cur[1]) : null };
   }
-  const pickMod = (m) => { const o = {}; ["s", "pl", "rp", "ri", "o", "oculto", "q", "eliminado", "rads", "bit"].forEach((k) => { if (k in m) o[k] = m[k]; }); return o; };
+  const pickMod = (m) => { const o = {}; ["s", "pl", "rp", "ri", "o", "oculto", "q", "eliminado", "rads", "bit", "alias"].forEach((k) => { if (k in m) o[k] = m[k]; }); return o; };
   function liqItems(cid) {
     const base = (S.liq[cid] && S.liq[cid].items) || [];
     const mods = Object.values(S.liqmod).filter((m) => m.cid === cid);
@@ -2126,6 +2162,7 @@ window.startApp = () => {
       x.nuevo ? { nuevo: true, despues: prev.despues || "", n: x.n, et: x.et || "", a: x.a || "", q: x.q, creada: prev.creada || prev.t || "" } : {}, patch, { t: new Date().toISOString(), uid: S.uid || "" });
     data.rads = patch.rads || conEvento(x.rads || prev.rads, x.s, patch.s);
     const bit = patch.bit || x.bit || prev.bit; if (bit && bit.length) data.bit = bit; else delete data.bit;
+    const alias = "alias" in patch ? patch.alias : (x.alias || prev.alias); if (alias && alias.length) data.alias = alias; else delete data.alias;
     // Un entregable que se deja a mano por detrás de su principal queda como excepción (no lo arrastran cambios posteriores)
     if (x.n === "e" && patch.s && x.p) { const pr = annotate(liqItems(c.id)).find((y) => y.r === x.p); data.excepcion = !!pr && EST.indexOf(patch.s) < EST.indexOf(pr.s); }
     else if (prev.excepcion != null && data.excepcion == null) data.excepcion = prev.excepcion;
@@ -2134,6 +2171,7 @@ window.startApp = () => {
     if (patch.pl != null && patch.pl !== (x.pl || "")) parts.push(patch.pl ? "plazo " + fmtD(patch.pl) : "sin plazo");
     if (patch.o != null && patch.o !== (x.o || "")) parts.push(patch.o.slice(0, 160));
     if (patch.rads && JSON.stringify(patch.rads) !== JSON.stringify(x.rads || [])) parts.push("registro de radicaciones: " + patch.rads.filter((e) => e.tipo === "rad").length + " radicaciones");
+    if (patch.alias && patch.alias.join("|") !== (x.alias || []).join("|")) parts.push("alias: " + (patch.alias.length ? patch.alias.join(", ") : "sin alias"));
     if (patch.oculto != null && patch.oculto !== !!x.oculto) parts.push(patch.oculto ? "marcado como no aplica" : "vuelve a aplicar");
     if (patch.bit && patch.bit.length > (x.bit || []).length) { const e = patch.bit[patch.bit.length - 1]; parts.push("bitácora: " + bitTexto(e)); }
     else if (patch.bit && patch.bit.length < (x.bit || []).length) parts.push("bitácora: quitó un evento");
@@ -2195,6 +2233,128 @@ window.startApp = () => {
     } catch (e) { toast(writeErr(e)); }
   }
 
+  // ---------- Bandeja «Del correo»: propuestas del asistente de correo ----------
+  // Marcha blanca (config/asistente.activa = false): solo el coordinador la ve y marca acierto o error; nada cambia en la agenda.
+  // Activa: coordinador e ingeniera aplican (con las funciones de siempre: bitácora, cascada, historial) o descartan con motivo.
+  const CORR = { vista: "nuevas", req: {}, cid: {}, motivo: {} };
+  const EST_P = { nueva: "Nueva", acierto: "Acertó", error: "Se equivocó", corregida: "Con corrección", aplicada: "Aplicada", descartada: "Descartada" };
+  const puedeCorreo = () => S.isOwner || !!(S.asis && S.asis.activa);
+  const correoOcupado = () => { const a = document.activeElement, v = $("v-correo"); return !!(a && v && v.contains(a) && a.value); };
+  const aliasDe = (s) => [...new Set(String(s || "").split(/[,;\n]/).map((t) => t.trim()).filter(Boolean))].slice(0, 30);
+  function precisionCorreo(all) {
+    const bien = all.filter((p) => p.estado === "acierto" || p.estado === "aplicada").length, mal = all.filter((p) => p.estado === "error" || p.estado === "descartada" || p.estado === "corregida").length;
+    return bien + mal ? { pct: Math.round(bien / (bien + mal) * 100), n: bien + mal } : null;
+  }
+  function reqOpciones(cid, sel) {
+    const s = el("select", { "aria-label": "Requisito" }, el("option", { value: "", text: "— Sin requisito —" }));
+    if (!cid || !S.liq[cid]) return s;
+    const its = annotate(liqItems(cid)); let og = null, gname = "";
+    its.forEach((y) => {
+      if (y.n === "g") { gname = y.q; og = el("optgroup", { label: y.q }); s.append(og); return; }
+      if (y.n !== "p" && y.n !== "e") return;
+      (og || s).append(el("option", { value: cid + "__" + y.r, text: (y.n === "e" ? "   ↳ " : "") + y.q.slice(0, 90) + (y.oculto ? " (no aplica)" : ""), selected: sel === cid + "__" + y.r }));
+    });
+    return s;
+  }
+  function nombreReq(id) {
+    if (!id) return null; const [cid, ...r] = id.split("__"), row = r.join("__");
+    if (!S.liq[cid]) return null; const its = annotate(liqItems(cid)), x = its.find((y) => y.r === row); if (!x) return null;
+    const p = x.n === "e" && x.p ? its.find((y) => y.r === x.p) : null;
+    return (p ? p.q + " › " : "") + x.q;
+  }
+  async function atenderProp(p, estado, extra) {
+    try {
+      await S.db.doc("propuestas/" + p.id).update({ estado, resultado: Object.assign({ por: S.uid || "", t: new Date().toISOString() }, extra || {}) });
+      log("correo", { tipo: "correo", titulo: (p.resumen || p.id).slice(0, 160), id: p.id }, EST_P[estado] + (extra && extra.motivo ? ": " + extra.motivo : ""));
+      delete CORR.req[p.id]; delete CORR.cid[p.id]; delete CORR.motivo[p.id];
+    } catch (e) { toast(writeErr(e)); }
+  }
+  async function aplicarProp(p, c, reqId) {
+    const asunto = p.fuente && p.fuente.asunto ? "Del correo: " + p.fuente.asunto.slice(0, 160) + (p.fuente.de ? " (" + p.fuente.de + ")" : "") : "Del correo";
+    if (p.tipo === "tarea") {
+      const t = p.tarea || {};
+      const data = buildData({ tipo: "tarea", titulo: t.titulo, resp: t.resp || "p1", contrato: c ? c.id : "", fecha: t.fecha || "", notas: [t.nota, asunto].filter(Boolean).join("\n"), origen: "correo" }, null);
+      const ref = await S.db.collection("agenda").add(data); log("crear", Object.assign({ id: ref.id }, data), "desde el correo");
+      toast("Tarea creada" + (t.fecha ? " para " + fmtDL(t.fecha) : "")); return;
+    }
+    if (!reqId) { toast("Nota marcada como vista"); return; }
+    const row = reqId.split("__").slice(1).join("__"), x = annotate(liqItems(c.id)).find((y) => y.r === row);
+    if (!x) throw { message: "No encontré ese requisito en la lista" };
+    const b = p.bitacora || { evento: "nota", quien: "nos", nota: p.nota };
+    const tp = b.evento, a = tp === "compromiso" || tp === "nota" ? "nos" : b.quien;
+    const K = cronoCalc(x), ultV = K.ver || "v1", tuvoObs = K.ev.length && K.ev[K.ev.length - 1].tipo === "obs";
+    const v = b.version || (tp === "rad" && tuvoObs ? (VERS[VERS.indexOf(ultV) + 1] || ultV) : ultV);
+    const e = { id: Date.now().toString(36), f: b.fecha || todayISO(), tipo: tp, a, v, of: b.oficio || "", n: [b.nota || p.nota || "", asunto].filter(Boolean).join(" · ").slice(0, 400), t: new Date().toISOString(), correo: p.id };
+    if (tp === "compromiso") { e.prom = b.prom || b.fecha || ""; e.por = b.por || ""; e.f = b.prom ? (b.fecha || todayISO()) : todayISO(); }
+    const ns = tp === "compromiso" || tp === "nota" ? "" : (b.estadoQueQueda || estadoDe(tp, a)); if (ns) e.s = ns;
+    const patch = { bit: (x.bit || []).concat(e) };
+    if (ns && ns !== x.s) { patch.s = ns; patch.rads = (x.rads || []).concat({ tipo: tipoEv(ns), s: ns, f: e.f, n: e.of }); }
+    await saveLiq(c, x, patch);
+  }
+  function tarjetaProp(p, activa) {
+    const ro = S.readOnly, nueva = (p.estado || "nueva") === "nueva";
+    const cid0 = p.contrato || "", cid = CORR.cid[p.id] !== undefined ? CORR.cid[p.id] : cid0;
+    const req0 = (p.bitacora && p.bitacora.requisito) || null, reqId = CORR.req[p.id] !== undefined ? CORR.req[p.id] : req0;
+    const c = S.contracts.find((y) => y.id === cid) || null, usaReq = p.tipo !== "tarea";
+    const b = p.bitacora, t = p.tarea, f = p.fuente || {};
+    const det = p.tipo === "tarea" && t ? [t.titulo, pname(t.resp), t.fecha ? "para el " + fmtDL(t.fecha) : "sin fecha"].filter(Boolean).join(" · ")
+      : b ? [BIT_T[b.evento] ? BIT_T[b.evento][0] : b.evento, b.evento === "rad" ? "a " + QUIEN[b.quien][0] : b.evento === "obs" || b.evento === "apr" ? "de " + QUIEN[b.quien][0] : "", b.fecha ? fmtD(b.fecha) : "", b.prom ? "prometido para el " + fmtD(b.prom) : "", b.oficio ? "oficio " + b.oficio : "",
+          (b.estadoQueQueda || estadoDe(b.evento, b.quien)) ? "→ " + EST_L[b.estadoQueQueda || estadoDe(b.evento, b.quien)] : ""].filter(Boolean).join(" · ") : (p.nota || "");
+    const head = el("div", { class: "co-h" },
+      el("span", { class: "co-tag", text: p.tipo === "tarea" ? "Tarea" : p.tipo === "bitacora" ? "Bitácora" : "Nota" }),
+      p.urgencia === "alta" ? el("span", { class: "co-tag urg", text: "Urgente" }) : null,
+      el("span", { class: "co-tag " + (p.confianza === "alta" ? "ok" : "med"), text: p.confianza === "alta" ? "Confianza alta" : "Confianza media · revisar a mano" }),
+      el("span", { class: "muted", text: p.recibido ? "Recibida " + fmtD(p.recibido.slice(0, 10)) : "" }),
+      !nueva ? el("span", { class: "co-tag st-" + p.estado, text: EST_P[p.estado] || p.estado }) : null);
+    const info = el("div", { class: "co-b" },
+      el("b", { class: "co-res", text: p.resumen || "(sin resumen)" }),
+      el("div", { class: "co-meta" }, el("span", { text: c ? c.nombre + " · " + c.codigo : cid ? cid : "Sin contrato" }), usaReq ? el("span", { class: reqId ? "" : "late", text: reqId ? (nombreReq(reqId) || reqId) : "Requisito sin ubicar" }) : null),
+      det ? el("div", { class: "co-det", text: det }) : null,
+      el("div", { class: "co-ev" }, (p.evidencia || []).map((e) => el("blockquote", null, el("span", { text: "«" + e.texto + "»" }), e.origen ? el("small", { class: "muted", text: " — " + e.origen }) : null))),
+      el("div", { class: "co-src muted" }, [f.de, f.asunto ? "«" + f.asunto + "»" : "", f.fecha ? fmtD(f.fecha.slice(0, 10)) : "", f.cuenta ? "vía " + f.cuenta : ""].filter(Boolean).join(" · "), f.enlace ? el("a", { href: f.enlace, target: "_blank", rel: "noopener", text: " Abrir correo ↗" }) : null),
+      p.senales && Object.keys(p.senales).length ? el("div", { class: "co-sen muted", text: "Señales: " + Object.entries(p.senales).map(([k, v]) => k + ": " + v).join(" · ") }) : null,
+      !nueva && p.resultado ? el("div", { class: "co-src muted", text: (EST_P[p.estado] || p.estado) + (p.resultado.t ? " el " + fmtD(p.resultado.t.slice(0, 10)) : "") + (p.resultado.por ? " por " + p.resultado.por : "") + (p.resultado.motivo ? " · motivo: " + p.resultado.motivo : "") + (p.resultado.cambios ? " · corrigió: " + Object.keys(p.resultado.cambios).join(", ") : "") }) : null);
+    const card = el("div", { class: "co-card" }, head, info);
+    if (!nueva || ro) return card;
+    // Corregir contrato y requisito antes de aplicar o de marcar acierto
+    const selC = el("select", { "aria-label": "Contrato", onchange: (e) => { CORR.cid[p.id] = e.target.value; CORR.req[p.id] = ""; renderCorreo(); } }, el("option", { value: "", text: "— Sin contrato —" }), S.contracts.filter((y) => !y.archivado).map((y) => el("option", { value: y.id, text: y.nombre + " · " + y.codigo, selected: y.id === cid })));
+    const selR = reqOpciones(cid, reqId); selR.addEventListener("change", (e) => { CORR.req[p.id] = e.target.value; renderCorreo(); });
+    const mot = el("input", { maxlength: "300", placeholder: activa ? "Motivo para descartar (obligatorio)" : "Qué estuvo mal (obligatorio si se equivocó)", value: CORR.motivo[p.id] || "", oninput: (e) => (CORR.motivo[p.id] = e.target.value) });
+    const cambios = () => { const o = {}; if (cid !== cid0) o.contrato = { de: cid0, a: cid }; if (usaReq && (reqId || null) !== (req0 || null)) o.requisito = { de: req0, a: reqId || null }; return Object.keys(o).length ? o : null; };
+    const pedirMotivo = () => { const m = mot.value.trim(); if (!m) { toast("Escribe el motivo"); mot.focus(); return null; } return m; };
+    const acts = [];
+    if (!activa) {
+      acts.push(el("button", { type: "button", class: "btn primary", text: cambios() ? "✓ Acertó, con mi corrección" : "✓ Acertó", onclick: () => { const ch = cambios(); atenderProp(p, ch ? "corregida" : "acierto", ch ? { cambios: ch, aplicada: false } : { aplicada: false }); } }));
+      acts.push(el("button", { type: "button", class: "btn danger", text: "✕ Se equivocó", onclick: () => { const m = pedirMotivo(); if (m) atenderProp(p, "error", { motivo: m, cambios: cambios(), aplicada: false }); } }));
+    } else {
+      const falta = usaReq && p.tipo === "bitacora" && !reqId ? "Elige el requisito" : p.confianza === "media" && usaReq && CORR.req[p.id] === undefined ? "Confianza media: confirma el requisito" : "";
+      acts.push(el("button", { type: "button", class: "btn primary", disabled: !!falta || (p.tipo !== "tarea" && usaReq && reqId && !c), title: falta, text: falta || (p.tipo === "tarea" ? "Aplicar: crear tarea" : p.tipo === "nota" && !reqId ? "Marcar como vista" : "Aplicar a la bitácora"),
+        onclick: async (ev) => { const btn = ev.currentTarget; btn.disabled = true; btn.textContent = "Aplicando…"; try { await aplicarProp(p, c, reqId || null); const ch = cambios(); await atenderProp(p, ch ? "corregida" : "aplicada", ch ? { cambios: ch, aplicada: true } : { aplicada: true }); } catch (e) { toast((e && e.message) || writeErr(e)); btn.disabled = false; btn.textContent = "Reintentar"; } } }));
+      acts.push(el("button", { type: "button", class: "btn danger", text: "Descartar", onclick: () => { const m = pedirMotivo(); if (m) atenderProp(p, "descartada", { motivo: m, cambios: cambios() }); } }));
+    }
+    card.append(el("div", { class: "co-fix" }, el("label", null, el("span", { text: "Contrato" }), selC), usaReq ? el("label", { class: "w" }, el("span", { text: "Requisito" }), selR) : null),
+      el("div", { class: "co-acts" }, acts, mot));
+    return card;
+  }
+  function renderCorreo() {
+    const box = $("v-correo"), activa = !!(S.asis && S.asis.activa);
+    if (!puedeCorreo()) { box.replaceChildren(); return; }
+    const all = (S.prop || []).slice().sort((a, b) => (b.recibido || "").localeCompare(a.recibido || ""));
+    const nuevas = all.filter((p) => (p.estado || "nueva") === "nueva"), hechas = all.filter((p) => p.estado && p.estado !== "nueva");
+    const pr = precisionCorreo(all), lista = CORR.vista === "hechas" ? hechas : nuevas;
+    const modo = el("div", { class: "co-modo" + (activa ? " on" : "") },
+      el("div", null, el("b", { text: activa ? "Bandeja activa" : "Marcha blanca" }),
+        el("span", { text: activa ? " · «Aplicar» cambia la agenda con las reglas de siempre (estado, entregables, historial)." : " · El asistente solo propone: marca si acertó o se equivocó. No se cambia nada de la agenda." })),
+      pr ? el("span", { class: "co-pr", text: "Precisión: " + pr.pct + " % (" + pr.n + " atendidas)" }) : null,
+      S.isOwner && !S.readOnly ? el("button", { type: "button", class: "btn", text: activa ? "Volver a marcha blanca" : "Activar bandeja", title: activa ? "Ocultar «Aplicar» y volver a solo marcar acierto o error" : "Permitir «Aplicar» y mostrar la bandeja también a la ingeniera",
+        onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = activa ? "¿Volver a marcha blanca?" : "¿Activar? La ingeniera también la verá"; return; }
+          S.db.doc("config/asistente").set({ activa: !activa, t: new Date().toISOString(), por: S.uid || "" }).then(() => { log("correo", { tipo: "correo", titulo: "Bandeja del correo", id: "asistente" }, activa ? "volvió a marcha blanca" : "activó la bandeja"); toast(activa ? "Marcha blanca" : "Bandeja activa"); }).catch((er) => toast(writeErr(er))); } }) : null);
+    const tabs = el("div", { class: "lq-views", role: "group", "aria-label": "Propuestas" },
+      [["nuevas", "Por revisar", nuevas.length], ["hechas", "Atendidas", hechas.length]].map(([k, tx, n]) => el("button", { type: "button", "aria-pressed": String(CORR.vista === k), onclick: () => { CORR.vista = k; renderCorreo(); } }, tx + " ", el("b", { text: String(n) }))));
+    box.replaceChildren(el("div", { class: "co-wrap" }, modo, tabs,
+      lista.length ? lista.slice(0, 150).map((p) => tarjetaProp(p, activa)) : el("div", { class: "empty" }, el("b", { text: CORR.vista === "hechas" ? "Aún no hay propuestas atendidas" : "No hay propuestas por revisar" }),
+        el("span", { text: S.propOk === false ? "La tabla de propuestas todavía no existe en Supabase (falta correr 06_asistente.sql)." : "El asistente revisa el correo de lunes a viernes a las 7:00 y a las 12:00." }))));
+  }
   function renderLiq() {
     const box = $("v-liq");
     L.sucio = false;
@@ -2256,6 +2416,7 @@ window.startApp = () => {
         fld("Fase", el("select", { disabled: ro || !S.isOwner, onchange: (e) => saveContract(c.id, { fase: e.target.value }) }, Object.entries(FASES).map(([k, v]) => el("option", { value: k, text: v, selected: (c.fase || "definir") === k })))),
         fld("Tipo de contrato", el("select", { disabled: ro || !S.isOwner, onchange: (e) => saveContract(c.id, { tipo: e.target.value }) }, Object.entries(TIPOS).map(([k, v]) => el("option", { value: k, text: v, selected: (c.tipo || "otro") === k })))),
         fld("Fecha de terminación", el("input", { type: "date", value: c.fterm || "", disabled: ro || !S.isOwner, onchange: (e) => saveContract(c.id, { fterm: e.target.value }) })),
+        fld("Alias para el asistente de correo", el("input", { maxlength: "400", value: (c.alias || []).join(", "), disabled: ro || !S.isOwner, placeholder: "Ej.: INGI-50259, CEPCIM-2407", title: "Otros nombres o códigos con que llega este contrato en los correos (separados por coma). El código y el nombre ya se reconocen solos.", onchange: (e) => saveContract(c.id, { alias: aliasDe(e.target.value) }) })),
         fld("Plazo pactado para liquidar (meses)", el("input", { type: "number", min: "1", max: "36", value: String(c.plazoMeses || 4), disabled: ro || !S.isOwner, onchange: (e) => saveContract(c.id, { plazoMeses: Math.max(1, +e.target.value || 4) }) }))));
     const parts = [head];
     if ((c.fase || "definir") === "liquidacion" || c.fterm) {
@@ -2376,12 +2537,14 @@ window.startApp = () => {
     const ro = S.readOnly;
     const pl = el("input", { type: "date", value: x.pl || "", disabled: ro || !!x.plAuto, title: x.plAuto ? "Automático: el plazo más tardío de sus entregables. Cámbialo en los entregables." : null }), rp = el("input", { value: x.rp || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Oscar" }), ri = el("input", { value: x.ri || "", maxlength: "80", disabled: ro, placeholder: "Ej.: Ing. Luis Villegas" });
     const o = el("textarea", { maxlength: "2000", disabled: ro, placeholder: "Qué pasó, qué falta, a quién se le envió…" }); o.value = x.o || "";
+    const al = el("input", { maxlength: "400", disabled: ro, value: (x.alias || []).join(", "), placeholder: "Ej.: FO-IN-07 TIGO, FOIN 7 de TIGO (separados por coma)" });
     return el("div", { class: "lq-ed" },
       cronoPanel(c, x),
       el("div", { class: "field" }, el("label", { text: x.plAuto ? "Plazo de entrega · automático (el más tardío de sus entregables)" : "Plazo de entrega" }), pl),
       el("div", { class: "field" }, el("label", { text: "Responsable" }), rp),
       el("div", { class: "field" }, el("label", { text: "Responsable interno" }), ri),
       el("div", { class: "field full" }, el("label", { text: "Observaciones" }), o),
+      el("div", { class: "field full" }, el("label", { text: "Otros nombres (alias) · para que el asistente de correo lo reconozca" }), al),
       el("details", { class: "full rad-det" }, el("summary", { text: "Registro automático de cambios de estado" + ((x.rads || []).length ? " (" + x.rads.length + ")" : "") + " · se llena solo; ábrelo solo para corregir" }), radEditor(x, ro)),
       el("div", { class: "acts" },
         el("div", null, el("button", { type: "button", class: "btn", disabled: ro, text: x.oculto ? "Sí aplica" : "No aplica", onclick: () => { L.sucio = false; saveLiq(c, x, { oculto: !x.oculto }); L.edit = null; } }),
@@ -2389,7 +2552,7 @@ window.startApp = () => {
           x.n === "p" ? el("button", { type: "button", class: "btn", disabled: ro, text: "+ Agregar requisito principal", title: "Se agrega debajo de este requisito y sus entregables", onclick: () => { L.addP = x.r; L.add = null; L.open[x.r] = false; L.edit = null; renderLiq(); } }) : null,
           el("button", { type: "button", class: "btn danger", disabled: ro, text: "Eliminar", title: x.n === "p" ? "Elimina el requisito y sus entregables" : "Elimina este entregable", onclick: (e) => { const b = e.currentTarget; if (!b.classList.contains("armed")) { b.classList.add("armed"); b.textContent = x.n === "p" ? "¿Eliminar con sus entregables?" : "¿Eliminar?"; return; } L.sucio = false; delLiqItem(c, x); } })),
         el("div", null, el("button", { type: "button", class: "btn", text: "Cancelar", onclick: () => { L.edit = null; renderLiq(); } }),
-          el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; L.sucio = false; saveLiq(c, x, { ...(x.plAuto ? {} : { pl: pl.value }), rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim(), rads: radsEditados(x) }); } }))));
+          el("button", { type: "button", class: "btn primary", disabled: ro, text: "Guardar", onclick: () => { L.edit = null; L.sucio = false; saveLiq(c, x, { ...(x.plAuto ? {} : { pl: pl.value }), alias: aliasDe(al.value), rp: rp.value.trim(), ri: ri.value.trim(), o: o.value.trim(), rads: radsEditados(x) }); } }))));
   }
   // ---------- Cronología del requisito: bitácora, compromisos y versiones ----------
   // Cada evento: { id, f, tipo: compromiso|rad|obs|apr|nota, a: int|idu|esp|nos (con quién), v, of, n, prom, s (estado que dejó), por, t }
@@ -2705,7 +2868,7 @@ window.startApp = () => {
 (() => {
   const SUPABASE_URL = "https://unfvthqaobkxhmitawvl.supabase.co";
   const SUPABASE_KEY = "sb_publishable_02rLX9sbBEqn6EeRsyX6oQ_p7GaBpO-";
-  const TABLAS = ["agenda", "config", "liq", "liqmod", "outlook", "outlook_ajustes"];
+  const TABLAS = ["agenda", "config", "liq", "liqmod", "outlook", "outlook_ajustes", "propuestas"];
   // ---------- Sesión que no se pierde ----------
   // La sesión se guarda en localStorage y además en una copia en IndexedDB. Si el navegador o la librería
   // borran la de localStorage (al cambiar de pestaña, al cerrar, por un fallo de red al renovarla), se recupera
@@ -2823,7 +2986,7 @@ window.startApp = () => {
         let turno = 0, firma = ""; // si llegan dos lecturas cruzadas, solo cuenta la más reciente
         const cargar = async () => { const mio = ++turno; const r = await todas(tabla); if (!vivo || mio !== turno) return;
           if (!r.error) { const f = JSON.stringify(r.data); if (f === firma) return; firma = f; } /* sin cambios: no se vuelve a pintar (no interrumpe lo que se está escribiendo) */
-          if (r.error) { aviso(r.error, tabla); if (onErr) onErr(err(r.error)); return; } window.__diag[tabla] = r.data.length; console.info("Supabase", tabla, r.data.length, "filas"); next(snapDocs(r.data)); };
+          if (r.error) { if (tabla !== "propuestas") aviso(r.error, tabla); /* la bandeja del correo es opcional: si la tabla aún no existe, no se muestra error */ if (onErr) onErr(err(r.error)); return; } window.__diag[tabla] = r.data.length; console.info("Supabase", tabla, r.data.length, "filas"); next(snapDocs(r.data)); };
         cargar(); const off = escuchar(tabla, demorar(cargar, 250));
         return () => { vivo = false; off(); };
       },
@@ -2954,7 +3117,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 20/11 12:12";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 20/11 15:10";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
