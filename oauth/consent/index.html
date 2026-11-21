@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Autorizar acceso · Agenda de liquidaciones</title>
+<!-- Página de autorización OAuth (Supabase OAuth Server). Se publica en agenda-liquidaciones/oauth/consent/index.html.
+     Supabase redirige aquí con ?authorization_id=…; la persona inicia sesión con su usuario de la agenda y aprueba o rechaza. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<style>
+  :root { --bg: #0f1419; --card: #1c242d; --line: #26303b; --ink: #e6edf3; --muted: #8b98a5; --accent: #7dd3fc; --late: #ff7b72; --done: #56d364; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 16px; }
+  .card { width: min(440px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: grid; gap: 14px; }
+  h1 { font-size: 18px; margin: 0; }
+  p { margin: 0; color: var(--muted); }
+  b { color: var(--ink); }
+  ul { margin: 0; padding-left: 18px; color: var(--muted); }
+  label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  input { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  button { font: inherit; font-weight: 600; border-radius: 9px; padding: 9px 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  button:disabled { opacity: .6; cursor: default; }
+  .err { color: var(--late); }
+  .ok { color: var(--done); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main class="card" id="app">
+  <h1>Agenda de liquidaciones</h1>
+  <p id="msg">Cargando…</p>
+  <form id="login" hidden>
+    <p>Inicia sesión con tu usuario de la agenda para continuar.</p>
+    <label>Correo <input id="email" type="email" autocomplete="username" required></label>
+    <label>Contraseña <input id="pass" type="password" autocomplete="current-password" required></label>
+    <div class="row"><button class="primary" type="submit">Ingresar</button></div>
+  </form>
+  <section id="consent" hidden>
+    <p id="quien"></p>
+    <p style="margin-top:10px"><b id="cliente">Una aplicación</b> pide permiso para <b>consultar</b> la agenda con tu usuario:</p>
+    <ul style="margin-top:6px">
+      <li>contratos, listas de chequeo, bitácora y plazos;</li>
+      <li>tareas y propuestas del asistente de correo.</li>
+    </ul>
+    <p style="margin-top:6px">Es <b>solo lectura</b>: no podrá crear, cambiar ni borrar nada.</p>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="aprobar" type="button">Autorizar</button>
+      <button id="rechazar" type="button">Rechazar</button>
+    </div>
+  </section>
+</main>
+<script>
+(async () => {
+  const sb = window.supabase.createClient("https://unfvthqaobkxhmitawvl.supabase.co", "sb_publishable_02rLX9sbBEqn6EeRsyX6oQ_p7GaBpO-",
+    { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+  const $ = (id) => document.getElementById(id), msg = $("msg");
+  const decir = (t, cls) => { msg.textContent = t; msg.className = cls || ""; msg.hidden = false; };
+  const id = new URLSearchParams(location.search).get("authorization_id");
+  if (!id) { decir("Falta el identificador de la autorización. Vuelve a intentarlo desde la aplicación que pidió el acceso.", "err"); return; }
+
+  async function mostrar() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) { msg.hidden = true; $("login").hidden = false; $("email").focus(); return; }
+    // Solo miembros de la agenda (coordinador o ingeniera)
+    const m = await sb.from("miembros").select("email,rol,nombre").eq("email", (user.email || "").toLowerCase()).maybeSingle();
+    if (m.error || !m.data) { decir("El correo " + user.email + " no está autorizado en la agenda.", "err"); return; }
+    const { data, error } = await sb.auth.oauth.getAuthorizationDetails(id);
+    if (error) { decir("No se pudo leer la solicitud: " + error.message, "err"); return; }
+    if (!data.authorization_id && data.redirect_url) { decir("Ya estaba autorizado. Volviendo…", "ok"); location.href = data.redirect_url; return; }
+    msg.hidden = true; $("login").hidden = true; $("consent").hidden = false;
+    $("quien").textContent = "Sesión: " + user.email + " (" + m.data.rol + ")";
+    $("cliente").textContent = (data.client && data.client.name) || "Una aplicación";
+  }
+  async function decidir(aprobar) {
+    $("aprobar").disabled = $("rechazar").disabled = true;
+    const r = aprobar ? await sb.auth.oauth.approveAuthorization(id) : await sb.auth.oauth.denyAuthorization(id);
+    if (r.error) { decir("No se pudo completar: " + r.error.message, "err"); $("aprobar").disabled = $("rechazar").disabled = false; return; }
+    decir(aprobar ? "Autorizado. Volviendo a la aplicación…" : "Rechazado. Volviendo…", aprobar ? "ok" : "");
+    location.href = r.data.redirect_url;
+  }
+  $("login").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim().toLowerCase(), password: $("pass").value });
+    if (error) { decir("No se pudo ingresar: " + (/invalid/i.test(error.message) ? "correo o contraseña incorrectos" : error.message), "err"); return; }
+    await mostrar();
+  });
+  $("aprobar").onclick = () => decidir(true);
+  $("rechazar").onclick = () => decidir(false);
+  mostrar().catch((e) => decir("Error: " + (e && e.message || e), "err"));
+})();
+</script>
+</body>
+</html>
