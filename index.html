@@ -571,13 +571,11 @@ select.est { -webkit-appearance: none; appearance: none; border: 1px solid color
 .cr-f.wide { grid-column: 1 / -1; }
 .cr-f[hidden], .cr-chk[hidden] { display: none; }
 .cr-chk { display: flex; align-items: center; gap: 6px; font-size: 12.5px; grid-column: 1 / -1; }
-#v-resumen { margin-bottom: 4px; }
+#v-resumen { max-width: 1100px; }
 .rd { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
 .rd.rd-vacio, .rd-b > .rd-vacio { padding: 10px 14px; color: var(--muted); }
-.rd-h { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 10px 14px; }
+.rd-h { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 10px 14px; }
 .rd-h::-webkit-details-marker { display: none; }
-.rd-h::after { content: "▸"; margin-left: auto; color: var(--muted); }
-.rd[open] > .rd-h::after { content: "▾"; }
 .rd-cnt { background: #1f2b33; color: #ffb4a6; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 700; }
 .rd-b { display: grid; gap: 10px; padding: 0 14px 14px; }
 .rd-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 12.5px; }
@@ -827,6 +825,7 @@ img { max-width: 100%; }
       <span><span style="width: 12px; text-align: center; color: #fb923c; font-weight: 700;">↷</span>No se cumplió: pasó al día siguiente</span>
     </div>
     <div class="side-foot">
+      <button class="btn" type="button" data-view="resumen" hidden>Resumen del correo</button>
       <button class="btn" type="button" data-view="correo" id="btn-correo" hidden>Del correo</button>
       <button class="btn" type="button" data-view="informes" hidden>Informes (solo tú)</button>
       <button class="btn" id="btn-team" type="button">Nombres del equipo</button>
@@ -848,6 +847,7 @@ img { max-width: 100%; }
           <button type="button" data-view="mes" aria-pressed="false">Mes</button>
           <button type="button" data-view="historial" aria-pressed="false">Pendientes e historial</button>
           <button type="button" data-view="liq" aria-pressed="false">Liquidaciones</button>
+          <button type="button" data-view="resumen" aria-pressed="false" hidden>Correo</button>
           <button type="button" data-view="informes" aria-pressed="false" hidden>Informes</button>
         </div>
       </div>
@@ -1180,13 +1180,14 @@ window.startApp = () => {
     else { $("eyebrow").textContent = "Seguimiento"; $("title").textContent = S.isOwner ? "Pendientes e historial" : "Pendientes"; }
     if (S.view === "informes") { $("eyebrow").textContent = "Solo para el coordinador"; $("title").textContent = "Informes"; }
     if (S.view === "correo") { $("eyebrow").textContent = "Asistente de correo"; $("title").textContent = "Del correo"; }
-    ["prev","today","next"].forEach((id) => ($(id).hidden = S.view === "historial" || S.view === "liq" || S.view === "informes" || S.view === "correo"));
+    if (S.view === "resumen") { $("eyebrow").textContent = "Asistente de correo"; $("title").textContent = "Resumen del correo"; }
+    ["prev","today","next"].forEach((id) => ($(id).hidden = S.view === "historial" || S.view === "liq" || S.view === "informes" || S.view === "correo" || S.view === "resumen"));
     document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === S.view)));
   }
 
   function renderView() {
     $("v-agenda").hidden = S.view !== "agenda"; $("v-semana").hidden = S.view !== "semana"; $("v-mes").hidden = S.view !== "mes"; $("v-historial").hidden = S.view !== "historial"; $("v-liq").hidden = S.view !== "liq"; $("v-informes").hidden = S.view !== "informes"; $("v-correo").hidden = S.view !== "correo"; renderResumen();
-    if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") { if (liqOcupado()) liqAvisoPend(); else renderLiq(); } else if (S.view === "informes") renderInformes(); else if (S.view === "correo") { if (!correoOcupado()) renderCorreo(); } else renderHist();
+    if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") { if (liqOcupado()) liqAvisoPend(); else renderLiq(); } else if (S.view === "informes") renderInformes(); else if (S.view === "correo") { if (!correoOcupado()) renderCorreo(); } else if (S.view !== "resumen") renderHist();
   }
   // Mientras alguien escribe en el panel de un requisito (o en «agregar»), los datos que llegan solos no repintan la vista: se esperan a Guardar/Cancelar
   function liqOcupado() { const v = $("v-liq"); return !!(L.sucio && v && !v.hidden && v.querySelector(".lq-ed, .lq-add")); }
@@ -1972,13 +1973,14 @@ window.startApp = () => {
   function applyRole() {
     const seg = document.querySelector('.seg [data-view="historial"]'); if (seg) seg.textContent = S.isOwner ? "Pendientes e historial" : "Pendientes";
     $("btn-team").hidden = !S.isOwner; $("btn-contracts").hidden = !S.isOwner;
-    document.querySelectorAll('[data-view="informes"]').forEach((b) => (b.hidden = !S.isOwner));
+    document.querySelectorAll('[data-view="informes"], [data-view="resumen"]').forEach((b) => (b.hidden = !S.isOwner));
     { const bc = $("btn-correo"), n = (S.prop || []).filter((p) => (p.estado || "nueva") === "nueva").length; bc.hidden = !puedeCorreo(); bc.textContent = "Del correo" + (n ? " (" + n + ")" : "") + (S.asis && S.asis.activa ? "" : " · marcha blanca"); }
     renderSideCounts();
   }
   function setView(v) {
     if (v === "informes" && !S.isOwner) v = "agenda";
     if (v === "correo" && !puedeCorreo()) v = "agenda";
+    if (v === "resumen" && !S.isOwner) v = "agenda";
     document.body.classList.remove("drawer"); S.view = v; S.miniMonth = null; render(); }
   function shift(dir) { const c = S.cursor; S.cursor = S.view === "mes" ? new Date(c.getFullYear(), c.getMonth() + dir, 1) : addDays(c, (S.view === "agenda" ? 1 : 7) * dir); S.miniMonth = null; render(); }
   document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
@@ -2307,18 +2309,16 @@ window.startApp = () => {
   function renderResumen() {
     const box = $("v-resumen"); if (!box) return;
     const all = (S.resumenes || []).slice().sort((a, b) => (Date.parse(b.generado) || 0) - (Date.parse(a.generado) || 0));
-    const ver = S.isOwner && ["agenda", "semana", "mes"].includes(S.view) && (all.length || S.resOk);
+    const ver = S.isOwner && S.view === "resumen";
     box.hidden = !ver; if (!ver) { box.replaceChildren(); return; }
-    const abierta = rdLS.get("rd-abierta") !== "0";
-    if (!all.length) { box.replaceChildren(el("div", { class: "rd rd-vacio", text: "📬 Resumen del correo · Todavía no hay resúmenes." })); return; }
+    if (!all.length) { box.replaceChildren(el("div", { class: "rd rd-vacio", text: S.resOk === false ? "Todavía no hay resúmenes (la tabla de resúmenes aún no responde)." : "Todavía no hay resúmenes. El asistente los envía de lunes a viernes a las 7:00 y a las 12:00." })); return; }
     const r = all.find((x) => x.id === RD.sel) || all[0];
     const G = Array.isArray(r.contratos) ? r.contratos : [];
     const of = (g, p) => (Array.isArray(g.items) ? g.items : []).filter((i) => i && i.p === p);
     const nos = []; G.forEach((g, gi) => of(g, "nos").forEach((i, ii) => nos.push([g, i, gi + "." + ii])));
     const cor = r.correos || {};
-    const det = el("details", { class: "rd" }); det.open = abierta;
-    det.addEventListener("toggle", () => rdLS.set("rd-abierta", det.open ? "1" : "0"));
-    det.append(el("summary", { class: "rd-h" },
+    const det = el("div", { class: "rd" });
+    det.append(el("div", { class: "rd-h" },
       el("span", { class: "rd-ic", text: "📬" }),
       el("b", { text: "Resumen del correo" }),
       el("span", { class: "muted", text: [r.corrida ? (/^\d/.test(r.corrida) ? "corrida " + r.corrida : r.corrida) : "", rdFecha(r.generado)].filter(Boolean).join(" · ") }),
@@ -3247,7 +3247,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 20/11 20:02";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 20/11 20:10";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
