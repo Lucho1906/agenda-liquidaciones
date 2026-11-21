@@ -611,6 +611,11 @@ select.est { -webkit-appearance: none; appearance: none; border: 1px solid color
 .rd-it { border-top: 1px solid var(--line); padding: 6px 0; }
 .rd-it > summary { list-style: none; cursor: pointer; display: grid; gap: 1px; }
 .rd-it .rd-det a { color: var(--accent); }
+.rd-prop { margin-top: 6px; border: 1px dashed var(--line); border-radius: 9px; padding: 8px; background: var(--card); color: var(--ink); }
+.rd-now .rd-prop { border-color: rgba(232,237,240,.25); background: #172028; color: #e8edf0; }
+.rd-prop-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .75; margin-bottom: 4px; }
+.co-card.compacto { padding: 8px 10px; background: transparent; border-color: transparent; }
+.co-acts .ok { color: var(--done); font-weight: 600; }
 .rd-ag { display: grid; gap: 1px; padding: 4px 0; border-top: 1px solid var(--line); font-size: 13px; }
 .rd-ag.sp { color: var(--muted); font-style: italic; }
 @media (max-width: 560px) { .rd-ni > summary { grid-template-columns: auto minmax(0, 1fr); } .rd-ni .rd-w { grid-column: 2; text-align: left; max-width: none; } }
@@ -1186,7 +1191,7 @@ window.startApp = () => {
   }
 
   function renderView() {
-    $("v-agenda").hidden = S.view !== "agenda"; $("v-semana").hidden = S.view !== "semana"; $("v-mes").hidden = S.view !== "mes"; $("v-historial").hidden = S.view !== "historial"; $("v-liq").hidden = S.view !== "liq"; $("v-informes").hidden = S.view !== "informes"; $("v-correo").hidden = S.view !== "correo"; renderResumen();
+    $("v-agenda").hidden = S.view !== "agenda"; $("v-semana").hidden = S.view !== "semana"; $("v-mes").hidden = S.view !== "mes"; $("v-historial").hidden = S.view !== "historial"; $("v-liq").hidden = S.view !== "liq"; $("v-informes").hidden = S.view !== "informes"; $("v-correo").hidden = S.view !== "correo"; if (!(S.view === "resumen" && resumenOcupado())) renderResumen();
     if (S.view === "agenda") renderAgenda(); else if (S.view === "semana") renderWeek(); else if (S.view === "mes") renderMonth(); else if (S.view === "liq") { if (liqOcupado()) liqAvisoPend(); else renderLiq(); } else if (S.view === "informes") renderInformes(); else if (S.view === "correo") { if (!correoOcupado()) renderCorreo(); } else if (S.view !== "resumen") renderHist();
   }
   // Mientras alguien escribe en el panel de un requisito (o en «agregar»), los datos que llegan solos no repintan la vista: se esperan a Guardar/Cancelar
@@ -1953,7 +1958,7 @@ window.startApp = () => {
     db.doc("config/equipo").onSnapshot((s) => { const d = s.exists ? s.data() : null; if (d) { S.people = { p1: d.p1 || "Coordinador", p2: d.p2 || "Ingeniera" }; render(); } }, () => {});
     db.doc("config/asistente").onSnapshot((s) => { S.asis = (s.exists && s.data()) || { activa: false }; if (S.view === "correo" && !puedeCorreo()) S.view = "agenda"; applyRole(); if (S.loaded) render(); }, () => {});
     db.collection("resumenes").onSnapshot((snap) => { S.resOk = true; S.resumenes = snap.docs.map((d) => Object.assign({}, d.data(), { id: d.id })); if (S.loaded) renderResumen(); }, () => { S.resOk = false; });
-    db.collection("propuestas").onSnapshot((snap) => { S.propOk = true; S.prop = snap.docs.map((d) => Object.assign({}, d.data(), { id: d.id })); applyRole(); if (S.loaded && S.view === "correo") renderView(); }, () => { S.propOk = false; });
+    db.collection("propuestas").onSnapshot((snap) => { S.propOk = true; S.prop = snap.docs.map((d) => Object.assign({}, d.data(), { id: d.id })); applyRole(); if (S.loaded && (S.view === "correo" || S.view === "resumen")) renderView(); }, () => { S.propOk = false; });
     db.collection("outlook").limit(5000).onSnapshot((snap) => { S.ol = snap.docs.map((d) => ({ id: d.id, e: d.data() })); mergeOl(); if (S.loaded) render(); }, () => {});
     db.collection("outlook_ajustes").limit(5000).onSnapshot((snap) => { const o = {}; snap.docs.forEach((d) => (o[d.id] = d.data())); S.olaj = o; mergeOl(); if (S.loaded) render(); }, () => {});
     db.collection("agenda").limit(1000).onSnapshot((snap) => { clearTimeout(timer); S.base = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); mergeOl(); S.loaded = true; setStatus(); render(); sembrarRevision(); arrastrarTareas(); },
@@ -2294,7 +2299,17 @@ window.startApp = () => {
   const rdUrl = (u) => (typeof u === "string" && /^https:\/\//i.test(u) ? u : null);
   const rdDe = (i) => [i.fuente && i.fuente.de, i.fuente && i.fuente.fecha ? rdFecha(i.fuente.fecha, true) : ""].filter(Boolean).join(" · ");
   // Detalle de un ítem: descripción, frase literal y enlace al correo
-  function rdItem(key, i, cls, cab) {
+  const resumenOcupado = () => { const a = document.activeElement, v = $("v-resumen"); return !!(a && v && v.contains(a) && a.value); };
+  // Recuadro «Para la agenda» de un ítem: la propuesta EN VIVO (tabla propuestas) con los mismos botones de la bandeja
+  function rdProp(g, pid) {
+    const a = (Array.isArray(g.agenda) ? g.agenda : []).find((x) => x && x.id === pid) || {};
+    const p = (S.prop || []).find((x) => x.id === pid);
+    const box = el("div", { class: "rd-prop" }, el("div", { class: "rd-prop-h", text: "Para la agenda" }));
+    if (!p) { box.append(el("div", { class: "rd-det" }, el("p", { text: [a.tipo, a.resumen].filter(Boolean).join(" · ") || pid }), a.destino ? el("p", { text: "Destino: " + a.destino }) : null, el("small", { text: S.propOk === false ? "La bandeja de propuestas no responde." : "Esta propuesta no está en la bandeja (puede no haberse enviado)." }))); return box; }
+    box.append(tarjetaProp(p, !!(S.asis && S.asis.activa), { compacto: true, destino: a.destino || "" }));
+    return box;
+  }
+  function rdItem(key, i, cls, cab, g) {
     const d = el("details", { class: cls }); d.open = RD.abiertos.has(key);
     d.addEventListener("toggle", () => { if (d.open) RD.abiertos.add(key); else RD.abiertos.delete(key); });
     const url = rdUrl(i.fuente && i.fuente.enlace);
@@ -2303,7 +2318,8 @@ window.startApp = () => {
         i.d ? el("p", { text: String(i.d) }) : null,
         i.evidencia ? el("blockquote", { text: "«" + String(i.evidencia) + "»" }) : null,
         i.fuente && i.fuente.asunto ? el("small", { text: "Asunto: " + String(i.fuente.asunto) + (i.fuente.cuenta ? " · vía " + i.fuente.cuenta : "") }) : null,
-        url ? el("a", { href: url, target: "_blank", rel: "noopener noreferrer", text: "Abrir correo ↗" }) : null));
+        url ? el("a", { href: url, target: "_blank", rel: "noopener noreferrer", text: "Abrir correo ↗" }) : null,
+        g && i.propuesta ? rdProp(g, String(i.propuesta)) : null));
     return d;
   }
   function renderResumen() {
@@ -2333,29 +2349,33 @@ window.startApp = () => {
       cor.omitidos ? el("span", { class: "muted", text: "Omitidos: " + String(cor.omitidos) }) : null,
       r.marchaBlanca ? el("span", { class: "rd-mb", text: "Marcha blanca: nada se aplica solo" }) : null,
       el("label", { class: "rd-sel" }, el("span", { text: "Ver corrida" }), sel),
-      el("a", { href: "https://claude.ai/artifact/UB6E2azi9UaKkTELTfXUbC", target: "_blank", rel: "noopener noreferrer", text: "Ver página completa y chat ↗" })));
+      el("a", { href: "https://claude.ai/artifact/UB6E2azi9UaKkTELTfXUbC", target: "_blank", rel: "noopener noreferrer", text: "Ver página completa y chat ↗" }),
+      el("button", { type: "button", class: "link-btn", text: "Ir a la bandeja «Del correo»", onclick: () => setView("correo") })));
     if (!G.length) { cuerpo.append(el("div", { class: "rd-vacio", text: "Sin novedades en el correo." })); det.append(cuerpo); box.replaceChildren(det); return; }
     // Nos toca
     const now = el("div", { class: "rd-now" }, el("h3", null, el("span", { text: "Nos toca" }), el("span", { text: String(nos.length) })));
     if (!nos.length) now.append(el("p", { class: "rd-soft", text: "Nada pendiente de nuestra parte en esta corrida." }));
     nos.forEach(([g, i, k]) => now.append(rdItem("n" + k, i, "rd-ni", [rdTag(g.c),
       el("div", { class: "rd-t" }, i.raro ? el("span", { class: "rd-raro", text: "Raro" }) : null, el("b", { text: String(i.t || "") }), el("span", { class: "rd-de", text: rdDe(i) })),
-      i.w ? el("span", { class: "rd-w", text: String(i.w) }) : el("span")])));
+      i.w ? el("span", { class: "rd-w", text: String(i.w) }) : el("span")], g)));
     cuerpo.append(now);
     // Una tarjeta plegable por contrato
     G.forEach((g, gi) => {
       const ag = Array.isArray(g.agenda) ? g.agenda : [], sp = Array.isArray(g.sinPropuesta) ? g.sinPropuesta : [];
       const n = { nos: of(g, "nos").length, otr: of(g, "otr").length, reu: of(g, "reu").length };
+      const pids = [...new Set([...(Array.isArray(g.items) ? g.items : []).map((i) => i && i.propuesta), ...ag.map((x) => x && x.id)].filter(Boolean))];
+      const porRev = pids.filter((id) => { const q = (S.prop || []).find((x) => x.id === id); return q && (q.estado || "nueva") === "nueva"; }).length;
       const cnt = [n.nos ? n.nos + " nos toca" : "", n.otr ? n.otr + " llegó de otros" : "", n.reu ? n.reu + (n.reu === 1 ? " reunión" : " reuniones") : "", ag.length ? ag.length + " a la agenda" : ""].filter(Boolean).join(" · ");
       const card = el("details", { class: "rd-card", style: "--ct:" + (RD_COL[g.c] || "#5b6770") }); card.open = RD.abiertos.has("c" + gi);
       card.addEventListener("toggle", () => { if (card.open) RD.abiertos.add("c" + gi); else RD.abiertos.delete("c" + gi); });
-      card.append(el("summary", null, el("div", { class: "rd-cr" }, rdTag(g.c), el("b", { text: String(g.n || "") }), cnt ? el("span", { class: "muted", text: cnt }) : null), g.lead ? el("span", { class: "rd-lead", text: String(g.lead) }) : null));
+      card.append(el("summary", null, el("div", { class: "rd-cr" }, rdTag(g.c), el("b", { text: String(g.n || "") }), cnt ? el("span", { class: "muted", text: cnt }) : null, porRev ? el("span", { class: "rd-cnt", text: porRev + (porRev === 1 ? " propuesta por revisar" : " propuestas por revisar") }) : null), g.lead ? el("span", { class: "rd-lead", text: String(g.lead) }) : null));
       const b = el("div", { class: "rd-cb" });
       ["otr", "reu"].forEach((p) => { const it = of(g, p); if (!it.length) return; b.append(el("h4", { text: RD_P[p] }));
-        it.forEach((i, ii) => b.append(rdItem("c" + gi + p + ii, i, "rd-it", [i.raro ? el("span", { class: "rd-raro", text: "Raro" }) : null, el("b", { text: String(i.t || "") }), el("span", { class: "rd-de", text: rdDe(i) })]))); });
+        it.forEach((i, ii) => b.append(rdItem("c" + gi + p + ii, i, "rd-it", [i.raro ? el("span", { class: "rd-raro", text: "Raro" }) : null, el("b", { text: String(i.t || "") }), el("span", { class: "rd-de", text: rdDe(i) })], g))); });
       if (ag.length || sp.length) {
         b.append(el("h4", { text: "Para la agenda" }));
-        ag.forEach((a) => b.append(el("div", { class: "rd-ag" }, el("span", { text: String(a.resumen || "") }), el("small", { class: "muted", text: [a.tipo, a.confianza ? "confianza " + a.confianza : "", a.estado].filter(Boolean).join(" · ") }))));
+        const ligadas = new Set((Array.isArray(g.items) ? g.items : []).map((i) => i && i.propuesta).filter(Boolean));
+        ag.forEach((a) => b.append(a && a.id && !ligadas.has(a.id) ? rdProp(g, a.id) : el("div", { class: "rd-ag" }, el("span", { text: String(a.resumen || "") }), el("small", { class: "muted", text: [a.tipo, a.destino || "", a.id && ligadas.has(a.id) ? "con botones en su ítem, arriba" : (a.confianza ? "confianza " + a.confianza : "")].filter(Boolean).join(" · ") }))));
         sp.forEach((t) => b.append(el("div", { class: "rd-ag sp" }, el("span", { text: String(t) }))));
       }
       if (n.nos && !n.otr && !n.reu && !ag.length && !sp.length) b.append(el("p", { class: "muted", text: "Lo de este contrato está arriba, en «Nos toca»." }));
@@ -2405,9 +2425,9 @@ window.startApp = () => {
       const t = p.tarea || {};
       const data = buildData({ tipo: "tarea", titulo: t.titulo, resp: t.resp || "p1", contrato: c ? c.id : "", fecha: t.fecha || "", notas: [t.nota, asunto].filter(Boolean).join("\n"), origen: "correo" }, null);
       const ref = await S.db.collection("agenda").add(data); log("crear", Object.assign({ id: ref.id }, data), "desde el correo");
-      toast("Tarea creada" + (t.fecha ? " para " + fmtDL(t.fecha) : "")); return;
+      toast("Tarea creada" + (t.fecha ? " para " + fmtDL(t.fecha) : "")); return { tarea: ref.id };
     }
-    if (!reqId) { toast("Nota marcada como vista"); return; }
+    if (!reqId) { toast("Nota marcada como vista"); return {}; }
     const row = reqId.split("__").slice(1).join("__"), x = annotate(liqItems(c.id)).find((y) => y.r === row);
     if (!x) throw { message: "No encontré ese requisito en la lista" };
     const b = p.bitacora || { evento: "nota", quien: "nos", nota: p.nota };
@@ -2420,8 +2440,26 @@ window.startApp = () => {
     const patch = { bit: (x.bit || []).concat(e) };
     if (ns && ns !== x.s) { patch.s = ns; patch.rads = (x.rads || []).concat({ tipo: tipoEv(ns), s: ns, f: e.f, n: e.of }); }
     await saveLiq(c, x, patch);
+    return { requisito: reqId };
   }
-  function tarjetaProp(p, activa) {
+  // Repinta la vista donde esté la propuesta (bandeja «Del correo» o pestaña «Correo»)
+  const repintarProp = () => (S.view === "resumen" ? renderResumen() : renderCorreo());
+  // Abre lo que dejó una propuesta aplicada: el requisito en Liquidaciones o la tarea en la agenda
+  function abrirDestino(r) {
+    if (r && r.requisito) { const [cid, ...rr] = r.requisito.split("__"), row = rr.join("__"); if (!S.liq[cid]) { toast("Ese contrato no tiene lista cargada"); return; }
+      openLiq(cid); const x = annotate(liqItems(cid)).find((y) => y.r === row); if (x) { if (x.p) L.open[x.p] = true; L.edit = row; renderLiq(); setTimeout(() => { const e = $("v-liq").querySelector(".lq-ed"); if (e) e.scrollIntoView({ block: "center" }); }, 60); } return; }
+    if (r && r.tarea) { const it = (S.base || []).find((y) => y.id === r.tarea); if (it) openItem(it); else toast("No encontré la tarea (puede haberse borrado)"); }
+  }
+  // Estado actual del requisito → estado que dejaría la propuesta
+  function cambioEstado(p, reqId) {
+    const b = p.bitacora; if (!b || !reqId) return null;
+    const [cid, ...rr] = reqId.split("__"), row = rr.join("__"); if (!S.liq[cid]) return null;
+    const x = annotate(liqItems(cid)).find((y) => y.r === row); if (!x) return null;
+    const ns = b.evento === "compromiso" || b.evento === "nota" ? "" : (b.estadoQueQueda || estadoDe(b.evento, b.quien));
+    return { de: x.s, a: ns };
+  }
+  function tarjetaProp(p, activa, opc) {
+    opc = opc || {};
     const ro = S.readOnly, nueva = (p.estado || "nueva") === "nueva";
     const cid0 = p.contrato || "", cid = CORR.cid[p.id] !== undefined ? CORR.cid[p.id] : cid0;
     const req0 = (p.bitacora && p.bitacora.requisito) || null, reqId = CORR.req[p.id] !== undefined ? CORR.req[p.id] : req0;
@@ -2435,20 +2473,23 @@ window.startApp = () => {
       p.urgencia === "alta" ? el("span", { class: "co-tag urg", text: "Urgente" }) : null,
       el("span", { class: "co-tag " + (p.confianza === "alta" ? "ok" : "med"), text: p.confianza === "alta" ? "Confianza alta" : "Confianza media · revisar a mano" }),
       el("span", { class: "muted", text: p.recibido ? "Recibida " + fmtD(p.recibido.slice(0, 10)) : "" }),
-      !nueva ? el("span", { class: "co-tag st-" + p.estado, text: EST_P[p.estado] || p.estado }) : null);
+      !nueva ? el("span", { class: "co-tag st-" + p.estado, text: EST_P[p.estado] || p.estado }) : opc.compacto ? el("span", { class: "co-tag med", text: "Por revisar" }) : null);
     const info = el("div", { class: "co-b" },
       el("b", { class: "co-res", text: p.resumen || "(sin resumen)" }),
       el("div", { class: "co-meta" }, el("span", { text: c ? c.nombre + " · " + c.codigo : cid ? cid : "Sin contrato" }), usaReq ? el("span", { class: reqId ? "" : "late", text: reqId ? (nombreReq(reqId) || reqId) : "Requisito sin ubicar" }) : null),
       det ? el("div", { class: "co-det", text: det }) : null,
-      el("div", { class: "co-ev" }, (p.evidencia || []).map((e) => el("blockquote", null, el("span", { text: "«" + e.texto + "»" }), e.origen ? el("small", { class: "muted", text: " — " + e.origen }) : null))),
-      el("div", { class: "co-src muted" }, [f.de, f.asunto ? "«" + f.asunto + "»" : "", f.fecha ? fmtD(f.fecha.slice(0, 10)) : "", f.cuenta ? "vía " + f.cuenta : ""].filter(Boolean).join(" · "), f.enlace ? el("a", { href: f.enlace, target: "_blank", rel: "noopener", text: " Abrir correo ↗" }) : null),
-      p.senales && Object.keys(p.senales).length ? el("div", { class: "co-sen muted", text: "Señales: " + Object.entries(p.senales).map(([k, v]) => k + ": " + v).join(" · ") }) : null,
+      opc.destino ? el("div", { class: "co-det" }, el("b", { text: "Destino: " }), String(opc.destino)) : null,
+      (() => { const ce = cambioEstado(p, reqId); return ce ? el("div", { class: "co-det" }, el("b", { text: "Estado: " }), (EST_L[ce.de] || ce.de) + (ce.a && ce.a !== ce.de ? " → " + EST_L[ce.a] : ce.a ? " (se mantiene)" : " (no cambia)")) : null; })(),
+      opc.compacto ? null : el("div", { class: "co-ev" }, (p.evidencia || []).map((e) => el("blockquote", null, el("span", { text: "«" + e.texto + "»" }), e.origen ? el("small", { class: "muted", text: " — " + e.origen }) : null))),
+      opc.compacto ? null : el("div", { class: "co-src muted" }, [f.de, f.asunto ? "«" + f.asunto + "»" : "", f.fecha ? fmtD(f.fecha.slice(0, 10)) : "", f.cuenta ? "vía " + f.cuenta : ""].filter(Boolean).join(" · "), f.enlace ? el("a", { href: f.enlace, target: "_blank", rel: "noopener", text: " Abrir correo ↗" }) : null),
+      !opc.compacto && p.senales && Object.keys(p.senales).length ? el("div", { class: "co-sen muted", text: "Señales: " + Object.entries(p.senales).map(([k, v]) => k + ": " + v).join(" · ") }) : null,
       !nueva && p.resultado ? el("div", { class: "co-src muted", text: (EST_P[p.estado] || p.estado) + (p.resultado.t ? " el " + fmtD(p.resultado.t.slice(0, 10)) : "") + (p.resultado.por ? " por " + p.resultado.por : "") + (p.resultado.motivo ? " · motivo: " + p.resultado.motivo : "") + (p.resultado.cambios ? " · corrigió: " + Object.keys(p.resultado.cambios).join(", ") : "") }) : null);
-    const card = el("div", { class: "co-card" }, head, info);
+    const card = el("div", { class: "co-card" + (opc.compacto ? " compacto" : "") }, head, info);
+    if (!nueva && p.resultado && p.resultado.aplicada && (p.resultado.requisito || p.resultado.tarea)) card.append(el("div", { class: "co-acts" }, el("span", { class: "ok", text: "Aplicada el " + fmtD((p.resultado.t || "").slice(0, 10)) }), el("button", { type: "button", class: "btn", text: p.resultado.tarea ? "Ver la tarea" : "Ver el requisito", onclick: () => abrirDestino(p.resultado) })));
     if (!nueva || ro) return card;
     // Corregir contrato y requisito antes de aplicar o de marcar acierto
-    const selC = el("select", { "aria-label": "Contrato", onchange: (e) => { CORR.cid[p.id] = e.target.value; CORR.req[p.id] = ""; renderCorreo(); } }, el("option", { value: "", text: "— Sin contrato —" }), S.contracts.filter((y) => !y.archivado).map((y) => el("option", { value: y.id, text: y.nombre + " · " + y.codigo, selected: y.id === cid })));
-    const selR = reqOpciones(cid, reqId); selR.addEventListener("change", (e) => { CORR.req[p.id] = e.target.value; renderCorreo(); });
+    const selC = el("select", { "aria-label": "Contrato", onchange: (e) => { CORR.cid[p.id] = e.target.value; CORR.req[p.id] = ""; repintarProp(); } }, el("option", { value: "", text: "— Sin contrato —" }), S.contracts.filter((y) => !y.archivado).map((y) => el("option", { value: y.id, text: y.nombre + " · " + y.codigo, selected: y.id === cid })));
+    const selR = reqOpciones(cid, reqId); selR.addEventListener("change", (e) => { CORR.req[p.id] = e.target.value; repintarProp(); });
     const mot = el("input", { maxlength: "300", placeholder: activa ? "Motivo para descartar (obligatorio)" : "Qué estuvo mal (obligatorio si se equivocó)", value: CORR.motivo[p.id] || "", oninput: (e) => (CORR.motivo[p.id] = e.target.value) });
     const cambios = () => { const o = {}; if (cid !== cid0) o.contrato = { de: cid0, a: cid }; if (usaReq && (reqId || null) !== (req0 || null)) o.requisito = { de: req0, a: reqId || null }; return Object.keys(o).length ? o : null; };
     const pedirMotivo = () => { const m = mot.value.trim(); if (!m) { toast("Escribe el motivo"); mot.focus(); return null; } return m; };
@@ -2459,7 +2500,7 @@ window.startApp = () => {
     } else {
       const falta = usaReq && p.tipo === "bitacora" && !reqId ? "Elige el requisito" : p.confianza === "media" && usaReq && CORR.req[p.id] === undefined ? "Confianza media: confirma el requisito" : "";
       acts.push(el("button", { type: "button", class: "btn primary", disabled: !!falta || (p.tipo !== "tarea" && usaReq && reqId && !c), title: falta, text: falta || (p.tipo === "tarea" ? "Aplicar: crear tarea" : p.tipo === "nota" && !reqId ? "Marcar como vista" : "Aplicar a la bitácora"),
-        onclick: async (ev) => { const btn = ev.currentTarget; btn.disabled = true; btn.textContent = "Aplicando…"; try { await aplicarProp(p, c, reqId || null); const ch = cambios(); await atenderProp(p, ch ? "corregida" : "aplicada", ch ? { cambios: ch, aplicada: true } : { aplicada: true }); } catch (e) { toast((e && e.message) || writeErr(e)); btn.disabled = false; btn.textContent = "Reintentar"; } } }));
+        onclick: async (ev) => { const btn = ev.currentTarget; btn.disabled = true; btn.textContent = "Aplicando…"; try { const ref = await aplicarProp(p, c, reqId || null); const ch = cambios(); await atenderProp(p, ch ? "corregida" : "aplicada", Object.assign(ch ? { cambios: ch } : {}, { aplicada: true }, ref || {})); } catch (e) { toast((e && e.message) || writeErr(e)); btn.disabled = false; btn.textContent = "Reintentar"; } } }));
       acts.push(el("button", { type: "button", class: "btn danger", text: "Descartar", onclick: () => { const m = pedirMotivo(); if (m) atenderProp(p, "descartada", { motivo: m, cambios: cambios() }); } }));
     }
     card.append(el("div", { class: "co-fix" }, el("label", null, el("span", { text: "Contrato" }), selC), usaReq ? el("label", { class: "w" }, el("span", { text: "Requisito" }), selR) : null),
@@ -3247,7 +3288,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 20/11 20:10";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 20/11 20:20";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
