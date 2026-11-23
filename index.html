@@ -2621,7 +2621,7 @@ window.startApp = () => {
     const areas = [...new Set(items.filter((x) => x.a && x.n !== "x").map((x) => x.a))].sort();
     const cap = (a) => a[0] + a.slice(1).toLowerCase();
     const t0f = todayISO();
-    const cuenta = (f) => items.filter((x) => x.n === "p" && !x.oculto && f(x)).length;
+    const cuenta = (f) => items.filter((x) => x.n === "p" && !x.oculto && (!L.area || x.a === L.area) && (!L.q || fold([x.q, x.o, x.rp, x.ri].filter(Boolean).join(" ")).includes(fold(L.q))) && f(x)).length;
     const VISTAS = [["", "Todos", cuenta(() => true)], ["pend", "Pendientes", cuenta((x) => !cerrado(x.s))], ["venc", "Vencidos", cuenta((x) => !entregado(x.s) && x.pl && x.pl < t0f)], ["aprob", "Cerrados", cuenta((x) => cerrado(x.s))]];
     const search = el("input", { type: "search", placeholder: "Buscar requisito, responsable u observación", value: L.q, "aria-label": "Buscar en la lista de chequeo" });
     search.addEventListener("input", () => { L.q = search.value; clearTimeout(search._t); search._t = setTimeout(() => { renderLiq(); const s2 = $("v-liq").querySelector('input[type="search"]'); if (s2) { s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); } }, 250); });
@@ -2631,10 +2631,10 @@ window.startApp = () => {
     const total = cuenta(() => true), nP = items.filter((x) => x.n === "p" && liqFilterMatch(x)).length, nE = items.filter((x) => x.n === "e" && liqFilterMatch(x)).length;
     const activos = [L.vista && VISTAS.find((v) => v[0] === L.vista)[1], L.est && EST_L[L.est], L.area && cap(L.area), L.plazo && "plazo " + fmtD(L.plazo), L.q && "“" + L.q + "”"].filter(Boolean);
     parts.push(el("div", { class: "lq-fbox" },
-      el("div", { class: "lq-views", role: "group", "aria-label": "Vista rápida" }, VISTAS.map(([k, t, n]) => el("button", { type: "button", "aria-pressed": String((L.vista || "") === k), onclick: () => { L.vista = k; renderLiq(); } }, t + " ", el("b", { text: String(n) })))),
+      el("div", { class: "lq-views", role: "group", "aria-label": "Vista rápida" }, VISTAS.map(([k, t, n]) => el("button", { type: "button", "aria-pressed": String((L.vista || "") === k), onclick: () => { L.vista = k; L.plazo = ""; renderLiq(); } }, t + " ", el("b", { text: String(n) })))),
       el("div", { class: "lq-frow" }, fld("Estado", selEst), fld("Área", selArea), el("div", { class: "field lq-search" }, el("label", { text: "Buscar" }), search)),
       el("div", { class: "lq-fsum" },
-        el("span", null, "Mostrando ", el("b", { text: nP + " de " + total }), " requisitos principales" + (nE ? " · " + nE + (nE === 1 ? " entregable cumple" : " entregables cumplen") + " el filtro" + (L.expandAll || L.q ? "" : " (se ven con «Con entregables»)") : "") + (activos.length ? " · " + activos.join(" · ") : "")),
+        el("span", null, "Mostrando ", el("b", { text: nP + " de " + total }), " requisitos principales" + (nE ? " · " + nE + (nE === 1 ? " entregable cumple" : " entregables cumplen") + " el filtro" + (L.expandAll || L.q || L.plazo ? "" : " (se ven con «Con entregables»)") : "") + (activos.length ? " · " + activos.join(" · ") : "")),
         el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;align-items:center" },
           el("div", { class: "lq-views", role: "group", "aria-label": "Nivel de detalle", style: "padding:3px" },
             el("button", { type: "button", "aria-pressed": String(!L.expandAll), onclick: () => { L.expandAll = false; L.open = {}; renderLiq(); } }, "Solo principales"),
@@ -2652,7 +2652,7 @@ window.startApp = () => {
     // Principales que cumplen el filtro por sí mismos, y principales que solo "contienen" entregables que lo cumplen
     const selfP = new Set(items.filter((x) => x.n === "p" && liqFilterMatch(x)).map((x) => x.r));
     const ctxP = new Set(items.filter((x) => x.n === "p" && !selfP.has(x.r) && (kids[x.r] || []).some((k) => visE.has(k.r))).map((x) => x.r));
-    const conEntregables = L.expandAll || !!L.q;
+    const conEntregables = L.expandAll || !!L.q || !!L.plazo;
     const visP = new Set(!filtering ? items.filter((x) => x.n === "p").map((x) => x.r) : [...selfP, ...(conEntregables ? ctxP : [])]);
     const list = el("div", { class: "lq-list" }); let et = null, shown = 0;
     const grpHas = (g) => items.some((x) => x.g === g && (visP.has(x.r) || (x.n === "e" && !x.p && visE.has(x.r))));
@@ -3288,7 +3288,7 @@ window.startApp = () => {
   // ---------- extras de la versión web: sesión y accesos ----------
   function extras() {
     const foot = document.querySelector(".side-foot"); if (!foot) return;
-    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 20/11 20:20";
+    const who = document.createElement("div"); who.className = "who-box"; who.textContent = yo.email + (yo.rol === "coordinador" ? " · coordinador" : " · ingeniera") + " · versión 23/11 16:59";
     const bell = document.createElement("button"); bell.type = "button"; bell.className = "btn"; bell.id = "btn-push"; bell.textContent = "🔔 Activar recordatorios"; bell.onclick = activarRecordatorios;
     foot.prepend(bell); estadoRecordatorios();
     const pw = document.createElement("button"); pw.type = "button"; pw.className = "btn"; pw.textContent = "Mi contraseña"; pw.onclick = () => { $("pass-err").hidden = true; $("pass-1").value = ""; $("pass-2").value = ""; $("dlg-pass").showModal(); };
